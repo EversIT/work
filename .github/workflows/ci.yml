@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - '[0-9]+.[0-9]+.x'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      # large-packages (the action's default) apt-removes a long list of
+      # preinstalled packages (Chrome, Firefox, PowerShell, Mono, Postgres,
+      # ...) - that apt-get remove/autoremove pass is the slow part of this
+      # step (~1-2min). The android/dotnet/haskell directory removals below
+      # stay on (default) since those alone free ~19GB via plain `rm -rf`
+      # in a few seconds, and ci.yml (no Docker image builds here, unlike
+      # publish.yml) doesn't need as much headroom as large-packages buys.
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: false
+          docker-images: false
+          large-packages: false
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          filter: tree:0
+
+      - name: Fetch Main
+        run: git fetch origin main:main
+        if: ${{ github.event_name == 'pull_request' }}
+
+      - name: Set SHAs
+        uses: nrwl/nx-set-shas@310288c04d90696f9f1bc27c5e3caea6642b53d4 # v5.0.0
+        with:
+          main-branch-name: 'main'
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      # Skip `npm ci` entirely when the lockfile (and Node major) are unchanged -
+      # the whole node_modules tree, native builds included, is restored as-is.
+      # `cache: npm` above stays as the fallback that speeds up the miss path.
+      - name: Cache node_modules
+        id: node-modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-node24-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      # Nx replays cached task results (lint/test/build) for projects whose inputs
+      # haven't changed. Content-addressed, so even a restore from an older run's
+      # key still hits for untouched projects. Keyed by run id so every run writes
+      # a fresh entry; restore-keys falls back to the latest previous one.
+      - name: Cache Nx
+        uses: actions/cache@v4
+        with:
+          path: .nx/cache
+          key: nx-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            nx-${{ runner.os }}-
+
+      # Nx's own cache only replays a task when its input hash matches
+      # exactly - any change to Cargo.lock/Cargo.toml/source forces a cold
+      # `cargo build --release`/`cargo test` for edge_shield, tunnel-server,
+      # and tunnel-client with zero reuse otherwise (no ~/.cargo registry,
+      # no incremental target dir carried over). Swatinem/rust-cache keys
+      # on Cargo.lock + rustc version and restores both, so only the crates
+      # that actually changed get recompiled instead of the whole
+      # dependency tree (pingora/BoringSSL, tokio, ...) every time.
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7 # v2.9.2
+        with:
+          workspaces: '. -> dist/target'
+
+      - name: Run Checks/Lint/Test/Build
+        run: |
+          pids=()
+
+          npx nx format:check &
+          pids+=($!)
+
+          npx nx sync:check &
+          pids+=($!)
+
+          npm run check-lock-files &
+          pids+=($!)
+
+          npx nx affected --targets=lint,test,build --parallel=3 &
+          pids+=($!)
+
+          for pid in "${pids[@]}"; do
+            wait "$pid"
+          done
+        timeout-minutes: 100

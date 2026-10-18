@@ -1,0 +1,26 @@
+name: NPM Audit
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions: {}
+jobs:
+  audit:
+    if: ${{ github.repository_owner == 'ZephyraX-Org' }}
+    permissions:
+      contents: read #  to fetch code (actions/checkout)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Run a security audit
+        run: npx audit-ci --critical --report-type summary

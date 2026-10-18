@@ -1,0 +1,193 @@
+name: publish
+
+# Mirrors nx's own trigger shape (nrwl/nx/.github/workflows/publish.yml):
+# a manual dispatch and a release trigger - just pointed at Docker images
+# instead of the npm registry. Builds every app that has a `container`
+# target and pushes it to GHCR - no npm package is published, this
+# workspace only ships containers. tunnel-client additionally pushes to
+# Docker Hub (see its project.json) since that's the one image customers
+# pull directly.
+#
+# A `release` (or a manual run with `build_all: true`) rebuilds *every*
+# image so the tag gets a complete, self-consistent set. A plain manual
+# run only rebuilds the images `nx affected` marks as changed since the
+# last successful run of this workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      build_all:
+        description: 'Rebuild every image instead of only affected ones'
+        type: boolean
+        default: false
+  release:
+    types: [published]
+
+run-name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Image Build' || format('Release Image Build for {0}', github.ref_name) }}
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  publish:
+    name: Build & push container images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      actions: read # nrwl/nx-set-shas reads previous workflow runs
+    steps:
+      # ubuntu-latest ships with ~14GB free and this job builds up to 17
+      # multi-arch images sequentially with `cache-to=...,mode=max` (exports
+      # every layer, not just the final image) - that filled the disk and
+      # crashed the runner mid-build (System.IO.IOException: No
+      # space left on device). This reclaims ~25-30GB by removing preinstalled
+      # toolchains the build doesn't use (.NET, Android SDK, GHC, etc.).
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: false
+          docker-images: false
+
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+
+      # Rust apps' container images are multi-arch (see rust.Dockerfile),
+      # but that Dockerfile only copies an already-built binary - it never
+      # compiles anything itself (avoids recompiling the whole dependency
+      # tree a second time inside Docker on top of the `nx run <app>:build`
+      # step below). Without this, the arm64 image would silently ship the
+      # amd64 binary this same runner just built natively. Installed
+      # unconditionally (cheap, ~10s) rather than gating on "is a Rust app
+      # affected" to avoid duplicating nx's own affected-detection logic
+      # here.
+      - name: Install aarch64 cross-compilation toolchain (for Rust apps' multi-arch container builds)
+        run: |
+          sudo apt-get update
+          # gcc-aarch64-linux-gnu alone only provides the compiler binary and
+          # its own built-in headers (limits.h etc.) - it does NOT include an
+          # aarch64 libc, so any crate with a C dependency (ring, used by
+          # rustls) fails with "bits/libc-header-start.h: No such file or
+          # directory" as soon as its build script includes a real libc
+          # header, falling back to the host's x86_64 /usr/include instead.
+          # libc6-dev-arm64-cross provides the actual aarch64 glibc headers
+          # (under /usr/aarch64-linux-gnu/include), which the cross-gcc uses
+          # automatically once installed.
+          # g++-aarch64-linux-gnu: edge_shield (pingora) links against
+          # BoringSSL, built from C++ source via its own cmake-driven build
+          # script (not plain cc-rs) - that needs a cross C++ compiler too,
+          # not just gcc.
+          sudo apt-get install -y --no-install-recommends \
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu \
+            libc6-dev-arm64-cross
+          rustup target add aarch64-unknown-linux-gnu
+
+      # cc-rs (used by ring, and by BoringSSL's build script for edge_shield)
+      # picks its cross compiler from CC_<target>/CXX_<target>/AR_<target> -
+      # relying on its own guessing heuristics for less common host/target
+      # combinations isn't as reliable as just telling it directly. Exported
+      # via GITHUB_ENV so every later cargo/cmake invocation in this job
+      # (across all 3 Rust apps' build/build-arm64 targets) sees them.
+      - name: Configure aarch64 cross-compiler environment
+        run: |
+          {
+            echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc"
+            echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++"
+            echo "AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar"
+          } >> "$GITHUB_ENV"
+
+      - name: Decide build scope
+        id: scope
+        run: |
+          if [ "${{ github.event_name }}" = "release" ] || [ "${{ inputs.build_all }}" = "true" ]; then
+            echo "all=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "all=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Cache node_modules
+        id: node-modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-node24-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      # Shared with the CI workflow's cache - restores `build` outputs so only the
+      # `docker build` step actually runs for projects that haven't changed.
+      - name: Cache Nx
+        uses: actions/cache@v4
+        with:
+          path: .nx/cache
+          key: nx-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            nx-${{ runner.os }}-
+
+      # Sets NX_BASE to the SHA of the last successful run of this workflow and
+      # NX_HEAD to the current SHA, so `nx affected` diffs against the last
+      # published state. Falls back to HEAD~1 on the first run.
+      - name: Set SHAs for nx affected
+        if: steps.scope.outputs.all != 'true'
+        uses: nrwl/nx-set-shas@310288c04d90696f9f1bc27c5e3caea6642b53d4 # v5.0.0
+        with:
+          main-branch-name: 'main'
+
+      # GHCR requires a lowercase image namespace; github.repository_owner keeps
+      # its original casing. Resolve every image ref once, into $GITHUB_ENV, so
+      # the `container` targets (which read these EVERSIT_* vars) pick them up.
+      - name: Resolve image refs
+        run: |
+          owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+          base="${REGISTRY}/${owner}"
+          {
+            echo "EVERSIT_WORK_BACKEND=${base}/backend"
+            echo "EVERSIT_WORK_FRONTEND=${base}/frontend"
+          } >> "$GITHUB_ENV"
+
+      - name: Set up QEMU (multi-arch emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # tunnel-client is the one image customers pull directly (see its
+      # project.json's container target), so it's additionally published to
+      # Docker Hub under eversit/eversitd - a plain `docker pull` shouldn't
+      # require a GHCR login. Everything else stays GHCR-only. Requires the
+      # DOCKERHUB_USERNAME/DOCKERHUB_TOKEN repo secrets (a Docker Hub access
+      # token, not the account password).
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & push all app images
+        if: steps.scope.outputs.all == 'true'
+        env:
+          INPUT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx nx run-many -t container --parallel=3 -- --push=true
+
+      - name: Build & push affected app images
+        if: steps.scope.outputs.all != 'true'
+        env:
+          INPUT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx nx affected -t container --parallel=3 -- --push=true

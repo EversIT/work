@@ -1,0 +1,1 @@
+nx prepush --parallel 8 --tuiAutoExit 0

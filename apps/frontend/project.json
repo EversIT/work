@@ -1,0 +1,57 @@
+{
+  "name": "frontend",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/frontend",
+  "projectType": "application",
+  "tags": [],
+  "targets": {
+    "orval": {
+      "command": "orval --config=apps/frontend/orval.config.ts"
+    },
+    "serve": {
+      "executor": "@nx/next:dev-server",
+      "options": {
+        "env": {
+          "NODE_ENV": "development"
+        }
+      }
+    },
+    "build": {
+      "defaultConfiguration": "production",
+      "dependsOn": [
+        {
+          "target": "orval",
+          "projects": "frontend"
+        }
+      ]
+    },
+    "container:local": {
+      "options": {
+        "file": "{workspaceRoot}/next.Dockerfile"
+      }
+    },
+    "container": {
+      "options": {
+        "file": "{workspaceRoot}/next.Dockerfile",
+        "cache-from": ["type=registry,ref=${EVERSIT_WORK_FRONTEND}:buildcache"],
+        "cache-to": [
+          "type=registry,ref=${EVERSIT_WORK_FRONTEND}:buildcache,mode=max"
+        ],
+        "metadata": {
+          "images": ["${EVERSIT_WORK_FRONTEND}"],
+          "tags": [
+            "latest",
+            "type=schedule",
+            "type=ref,event=branch",
+            "type=ref,event=tag",
+            "type=ref,event=pr",
+            "type=semver,pattern={{version}}",
+            "type=semver,pattern={{major}}",
+            "type=semver,pattern={{major}}.{{minor}}",
+            "type=sha,prefix=sha-"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,3 @@
+# Auto-format staged files with Prettier and re-stage them, so a commit is
+# always Prettier-clean and the CI `nx format:check` step can't fail on it.
+npx pretty-quick --staged
