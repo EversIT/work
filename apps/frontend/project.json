@@ -6,15 +6,23 @@
   "tags": [],
   "targets": {
     "orval": {
-      "command": "orval --config=apps/frontend/orval.config.ts"
-    },
-    "serve": {
-      "executor": "@nx/next:dev-server",
+      "command": "orval --config=apps/frontend/orval.config.ts",
       "options": {
-        "env": {
-          "NODE_ENV": "development"
+        "cwd": "{workspaceRoot}"
+      },
+      "dependsOn": [
+        {
+          "target": "openapi",
+          "projects": "backend"
         }
-      }
+      ],
+      "inputs": [
+        "{workspaceRoot}/apps/backend/openapi.json",
+        "{projectRoot}/orval.config.ts",
+        "{projectRoot}/src/api/fetcher.ts"
+      ],
+      "outputs": ["{projectRoot}/src/api/generated"],
+      "cache": true
     },
     "build": {
       "defaultConfiguration": "production",
@@ -26,8 +34,17 @@
       ]
     },
     "container:local": {
+      "executor": "@nx-tools/nx-container:build",
+      "dependsOn": ["build"],
       "options": {
-        "file": "{workspaceRoot}/next.Dockerfile"
+        "engine": "docker",
+        "file": "{workspaceRoot}/next.Dockerfile",
+        "build-args": ["APP_NAME=frontend"],
+        "metadata": {
+          "images": ["work-frontend"],
+          "load": "true",
+          "tags": ["latest"]
+        }
       }
     },
     "container": {
@@ -50,8 +67,20 @@
             "type=semver,pattern={{major}}.{{minor}}",
             "type=sha,prefix=sha-"
           ]
+        },
+        "engine": "docker",
+        "build-args": ["APP_NAME=frontend"]
+      },
+      "executor": "@nx-tools/nx-container:build",
+      "dependsOn": ["build"]
+    },
+    "dev": {
+      "dependsOn": [
+        {
+          "target": "orval",
+          "projects": "frontend"
         }
-      }
+      ]
     }
   }
 }

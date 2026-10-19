@@ -1,109 +1,108 @@
-# New Nx Repository
+# work
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+An open-source, self-hosted alternative to Jira: projects with boards, backlog and sprints, issue keys (`WORK-12`),
+issue types, priorities, story points, automations with webhooks, and an API with personal API tokens.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+Built with a **Rust** backend (Axum, SQLx, PostgreSQL) and a **Next.js** frontend on **HeroUI v3**. It started as a
+port of an existing NestJS/Vue project; the security problems found in that code were designed out
+(see [docs/SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md)).
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/docs/technologies/typescript/introduction?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+## What you get
 
-🚀 If you haven't connected to Nx Cloud yet, [complete your setup here](https://cloud.nx.app/get-started). Get faster builds with remote caching, distributed task execution, and self-healing CI. [See how your workspace can benefit](#nx-cloud).
+- **Projects** (Kanban or Scrum) in **spaces**, public or private with per-user grants, inside **workspaces** with an
+  issue key prefix. Roles per project: viewer, member, admin, owner.
+- **Board, backlog, list, calendar and timeline.** Drag and drop between statuses and sprints; start and complete sprints.
+- **Issues** with type (Epic, Story, Task, Bug, Sub-task), summary, description, assignee, reporter, priority, labels,
+  story points, dates, child issues, comments with attachments, history, watchers and notifications (in-app live via
+  SSE, e-mail, Slack). Custom issue types and fields.
+- **Search and filters:** by key or text from the top bar, quick filters, saved filters per view.
+- **Automations:** triggers (issue created, field changed, status changed, comment, assignee changed, **incoming
+  webhook**) and actions (set field, move, assign, comment, create issue or sub-task, **send webhook**, **send e-mail**).
+- **API:** everything the UI does is a documented REST call. Create **API tokens** in your account settings and use
+  them as `Authorization: Bearer wrk_…` or, Jira-style, with Basic auth `email:token`. The OpenAPI document is served at
+  `/api/v1/openapi.json`.
+- **English and German.** The language is stored in a cookie, never in the URL.
 
-## Generate a library
+## Architecture
+
+```
+browser ──► Next.js (:3000) ──/api/v1/*──► Rust backend (127.0.0.1:3001) ──► PostgreSQL
+              HeroUI v3        proxy          Axum + SQLx
+                 ▲                                │
+                 └──── orval-generated client ◄── OpenAPI (utoipa)
+```
+
+- Only the frontend port is exposed. The backend is reached through the Next proxy (`apps/frontend/src/proxy.ts`).
+- The backend generates its OpenAPI document. `apps/backend/openapi.json` is committed, CI fails if it is stale, and
+  `orval` generates the typed React Query client from it into `apps/frontend/src/api/generated` (git-ignored).
+- Rust is wired into Nx with [`@monodon/rust`](https://nx.dev/docs/kb/add-rust-to-nx-workspace); `apps/backend` is a normal Nx project.
+
+## Develop
+
+Requirements: Node 24+, Rust via [rustup](https://rustup.rs) (toolchain pinned in `rust-toolchain.toml`), PostgreSQL 15+,
+Docker (for the image targets and tests).
 
 ```sh
-npx nx g @nx/js:lib packages/pkg1 --publishable --importPath=@my-org/pkg1
+cp .env.example .env        # fill in every required value; there are no defaults for secrets
+npm ci
+npx nx run backend:serve    # needs the WORK_* variables from .env in the environment
+npx nx run frontend:dev     # regenerates the API client first
 ```
 
-## Run tasks
+Useful targets: `npx nx run backend:test`, `backend:lint`, `backend:openapi`, `frontend:orval`, `frontend:build`,
+`frontend-e2e:e2e`.
 
-To build the library use:
+### Tests
+
+| What | How |
+|------|-----|
+| Unit tests | `npx nx run backend:test` |
+| Database end-to-end (authorization, SSRF, webhooks, sprints, …) | `DATABASE_URL=postgres://… npx nx run backend:test --args=--include-ignored` |
+| Mail flows (password reset, invitations, automation mail) | additionally `TEST_SMTP_PORT=… TEST_MAILPIT_API=http://…` pointing at a [Mailpit](https://mailpit.axllent.org) |
+| Browser end-to-end (Playwright) | start backend + frontend (or the compose stack), then `PW_CHANNEL=chrome E2E_BASE_URL=http://localhost:3000 npx nx run frontend-e2e:e2e` |
+
+## Docker images
+
+Nx builds both images (`@nx-tools/nx-container`), packaging prebuilt artifacts:
+
+| Image | Dockerfile | Built from |
+|-------|------------|------------|
+| `backend` | `rust.Dockerfile` (ubuntu base, non-root, linux/amd64 + linux/arm64) | `backend:build`, `backend:build-arm64` |
+| `frontend` | `next.Dockerfile` | `frontend:build` (Next standalone output) |
 
 ```sh
-npx nx run pkg1:build
+npx nx run-many -t container:local      # builds work-backend:latest and work-frontend:latest
 ```
 
-To run any task with Nx use:
+**Publishing** is the `publish` GitHub Actions workflow (manual dispatch or a published release). It pushes
+`ghcr.io/<owner>/backend` and `ghcr.io/<owner>/frontend` with the built-in `GITHUB_TOKEN`; nothing to configure.
+To move to **Docker Hub** later, set the repository variables `IMAGE_REGISTRY=docker.io` and
+`IMAGE_NAMESPACE=<hub user or org>` and add the `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` secrets. The workflow itself
+does not change.
+
+## Run with Docker
 
 ```sh
-npx nx run <project-name>:<target>
+cp .env.example .env   # fill in the required values, including the two image refs
+docker compose up
 ```
 
-These targets are either [inferred automatically](https://nx.dev/docs/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+Compose refuses to start when a secret is missing. Only `127.0.0.1:3000` is published. Put a TLS-terminating reverse proxy
+in front for production and set `WORK_FRONTEND_URL` to the public `https://` URL. `docker compose --profile dev up` adds
+Mailpit (web UI on `127.0.0.1:8025`) for trying e-mail features.
 
-[More about running tasks in the docs &raquo;](https://nx.dev/docs/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Versioning and releasing
-
-To version and release the library use
-
-```
-npx nx release
-```
-
-Pass `--dry-run` to see what would happen without actually releasing the library.
-
-[Learn more about Nx release &raquo;](https://nx.dev/docs/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Keep TypeScript project references up to date
-
-Nx automatically updates TypeScript [project references](https://www.typescriptlang.org/docs/handbook/project-references.html) in `tsconfig.json` files to ensure they remain accurate based on your project dependencies (`import` or `require` statements). This sync is automatically done when running tasks such as `build` or `typecheck`, which require updated references to function correctly.
-
-To manually trigger the process to sync the project graph dependencies information to the TypeScript project references, run the following command:
+## Using the API
 
 ```sh
-npx nx sync
+curl -H "Authorization: Bearer wrk_…" https://work.example.com/api/v1/me
+curl -u you@example.com:wrk_… https://work.example.com/api/v1/projects
+curl -X POST -H "Authorization: Bearer wrk_…" -H "content-type: application/json" \
+     -d '{"data":{"title":"Created through the API"}}' https://work.example.com/api/v1/lists/<list-id>/cards
 ```
 
-You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
+Tokens are read-only or read-write, can expire, act with your permissions and can be revoked at any time.
+Managing tokens, passwords and the account itself needs a browser session.
 
-```sh
-npx nx sync:check
-```
+## License
 
-[Learn more about nx sync](https://nx.dev/reference/nx-commands#sync)
-
-## Nx Cloud
-
-Nx Cloud ensures a [fast and scalable CI](https://nx.dev/nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
-
-- [Remote caching](https://nx.dev/docs/features/ci-features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/docs/features/ci-features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/docs/features/ci-features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/docs/features/ci-features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-### Set up CI (non-Github Actions CI)
-
-**Note:** This is only required if your CI provider is not GitHub Actions.
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
-```
-
-[Learn more about Nx on CI](https://nx.dev/docs/features/ci-features?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/docs/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## 🔗 Learn More
-
-- [Nx Documentation](https://nx.dev/docs)
-- [Crafting Your Workspace Tutorial](https://nx.dev/docs/getting-started/tutorials/crafting-your-workspace)
-- [Module Boundaries](https://nx.dev/docs/features/enforce-module-boundaries)
-- [Releasing Packages](https://nx.dev/docs/features/manage-releases)
-- [Nx Plugins](https://nx.dev/docs/concepts/nx-plugins)
-- [Nx Cloud](https://nx.dev/nx-cloud)
-
-## 💬 Community
-
-Join the Nx community:
-
-- [Discord](https://go.nx.dev/community)
-- [X (Twitter)](https://twitter.com/nxdevtools)
-- [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [YouTube](https://www.youtube.com/@nxdevtools)
-- [Blog](https://nx.dev/blog)
+MIT, see [LICENSE](LICENSE). The license keeps the copyright notice of the original project this code derives from, as the MIT license requires.

@@ -7,7 +7,13 @@
       "!{projectRoot}/**/?(*.)+(spec|test).[jt]s?(x)?(.snap)",
       "!{projectRoot}/tsconfig.spec.json"
     ],
-    "sharedGlobals": []
+    "sharedGlobals": [],
+    "rust": [
+      "default",
+      "{workspaceRoot}/Cargo.toml",
+      "{workspaceRoot}/Cargo.lock",
+      "{workspaceRoot}/rust-toolchain.toml"
+    ]
   },
   "plugins": [
     {
@@ -48,12 +54,34 @@
         "ciTargetName": "test-ci",
         "testMode": "watch"
       }
-    }
+    },
+    {
+      "plugin": "@nx-tools/nx-container",
+      "options": {
+        "defaultEngine": "docker",
+        "defaultRegistry": "docker.io"
+      }
+    },
+    "@monodon/rust"
   ],
   "analytics": false,
   "targetDefaults": {
     "test": {
       "dependsOn": ["^build"]
+    },
+    "@monodon/rust:build": {
+      "cache": true,
+      "inputs": ["rust", "^rust"],
+      "dependsOn": ["^build"]
+    },
+    "@monodon/rust:test": {
+      "cache": true,
+      "inputs": ["rust", "^rust"],
+      "dependsOn": ["^build"]
+    },
+    "@monodon/rust:lint": {
+      "cache": true,
+      "inputs": ["rust", "^rust"]
     }
   },
   "generators": {

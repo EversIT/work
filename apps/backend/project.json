@@ -1,0 +1,130 @@
+{
+  "name": "backend",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/backend/src",
+  "projectType": "application",
+  "tags": ["rust"],
+  "targets": {
+    "build": {
+      "cache": true,
+      "executor": "@monodon/rust:build",
+      "outputs": ["{options.target-dir}/release"],
+      "options": {
+        "target-dir": "dist/target",
+        "release": true
+      }
+    },
+    "build-arm64": {
+      "cache": true,
+      "executor": "@monodon/rust:build",
+      "outputs": ["{options.target-dir}/aarch64-unknown-linux-gnu"],
+      "options": {
+        "target-dir": "dist/target",
+        "target": "aarch64-unknown-linux-gnu",
+        "release": true
+      }
+    },
+    "test": {
+      "cache": true,
+      "executor": "@monodon/rust:test",
+      "outputs": ["{options.target-dir}"],
+      "options": {
+        "target-dir": "dist/target"
+      }
+    },
+    "lint": {
+      "cache": true,
+      "executor": "@monodon/rust:lint",
+      "outputs": ["{options.target-dir}"],
+      "options": {
+        "target-dir": "dist/target",
+        "args": ["-D", "warnings"]
+      }
+    },
+    "serve": {
+      "continuous": true,
+      "executor": "@monodon/rust:run",
+      "options": {
+        "target-dir": "dist/target"
+      }
+    },
+    "openapi": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cargo run -q -p backend -- openapi > apps/backend/openapi.json",
+        "cwd": "{workspaceRoot}"
+      },
+      "inputs": ["rust", "{projectRoot}/src/**/*", "{projectRoot}/Cargo.toml"],
+      "outputs": ["{projectRoot}/openapi.json"],
+      "cache": true
+    },
+    "audit": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cargo audit",
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "container": {
+      "executor": "@nx-tools/nx-container:build",
+      "dependsOn": ["build", "build-arm64"],
+      "options": {
+        "engine": "docker",
+        "file": "{workspaceRoot}/rust.Dockerfile",
+        "build-args": ["APP_NAME=work-backend", "GIT_HASH=${GITHUB_SHA}"],
+        "platforms": ["linux/amd64", "linux/arm64"],
+        "cache-from": ["type=registry,ref=${EVERSIT_WORK_BACKEND}:buildcache"],
+        "cache-to": [
+          "type=registry,ref=${EVERSIT_WORK_BACKEND}:buildcache,mode=max"
+        ],
+        "metadata": {
+          "images": ["${EVERSIT_WORK_BACKEND}"],
+          "tags": [
+            "latest",
+            "type=schedule",
+            "type=ref,event=branch",
+            "type=ref,event=tag",
+            "type=ref,event=pr",
+            "type=semver,pattern={{version}}",
+            "type=semver,pattern={{major}}",
+            "type=semver,pattern={{major}}.{{minor}}",
+            "type=sha,prefix=sha-"
+          ]
+        }
+      }
+    },
+    "container:local": {
+      "executor": "@nx-tools/nx-container:build",
+      "dependsOn": ["build-linux"],
+      "options": {
+        "engine": "docker",
+        "file": "{workspaceRoot}/rust.Dockerfile",
+        "build-args": [
+          "APP_NAME=work-backend",
+          "BIN_AMD64=dist/target-linux/release/work-backend",
+          "BIN_ARM64=dist/target-linux/release/work-backend"
+        ],
+        "metadata": {
+          "images": ["work-backend"],
+          "load": "true",
+          "tags": ["latest"]
+        }
+      }
+    },
+    "build-linux": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "inputs": [
+        "rust",
+        "{projectRoot}/src/**/*",
+        "{projectRoot}/migrations/**/*",
+        "{projectRoot}/Cargo.toml"
+      ],
+      "outputs": ["{workspaceRoot}/dist/target-linux/release"],
+      "options": {
+        "cwd": "{workspaceRoot}",
+        "command": "docker run --rm -v \"$PWD\":/src -w /src -e CARGO_TARGET_DIR=/src/dist/target-linux -v work-cargo-registry:/usr/local/cargo/registry rust:1-bookworm cargo build --release -p backend"
+      }
+    }
+  }
+}

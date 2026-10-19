@@ -1,0 +1,91 @@
+name: Security and tests
+on:
+  push: { branches: [main] }
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ${{ github.run_id }}-ci
+          POSTGRES_DB: ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 5s --health-timeout 3s --health-retries 10
+      mailpit:
+        image: axllent/mailpit:latest
+        ports: ['1025:1025', '8025:8025']
+    env:
+      DATABASE_URL: postgres://ci:${{ github.run_id }}-ci@localhost:5432/ci
+      TEST_SMTP_PORT: '1025'
+      TEST_MAILPIT_API: http://127.0.0.1:8025
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: npm }
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci --ignore-scripts
+      - run: cargo fmt --all -- --check
+      - run: npx nx run backend:lint
+      # Includes the #[ignore]d end-to-end tests that need the Postgres service above.
+      - run: npx nx run backend:test --args=--include-ignored
+      - run: cargo install cargo-audit --locked && npx nx run backend:audit
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: npm }
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci --ignore-scripts
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npx nx run frontend:build
+      # The committed spec must match the code, so API changes are always reviewed.
+      - run: git diff --exit-code apps/backend/openapi.json
+  e2e:
+    # Production images through the compose file, then the browser tests against http://localhost:3000.
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: npm }
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci --ignore-scripts
+      - run: npx nx run-many -t container:local
+      - name: Start the stack with throw-away secrets
+        run: |
+          {
+            echo "WORK_FRONTEND_IMAGE=work-frontend:latest"
+            echo "WORK_BACKEND_IMAGE=work-backend:latest"
+            echo "POSTGRES_USER=work"
+            echo "POSTGRES_DB=work"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
+            echo "WORK_JWT_SECRET=$(openssl rand -base64 48 | tr -d '\n')"
+            echo "WORK_FRONTEND_URL=http://localhost:3000"
+            echo "WORK_AUTH_RATE_LIMIT=1000"
+            echo "WORK_SMTP_HOST=mailpit"
+            echo "WORK_SMTP_PORT=1025"
+            echo "WORK_SMTP_FROM=work@example.test"
+            echo "WORK_SMTP_TLS=none"
+          } > "$RUNNER_TEMP/stack.env"
+          docker compose --env-file "$RUNNER_TEMP/stack.env" --profile dev up -d --wait
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --config=apps/frontend-e2e/playwright.config.ts
+        env:
+          E2E_BASE_URL: http://localhost:3000
+          E2E_MAILPIT_API: http://127.0.0.1:8025
+          # The hardened backend refuses private webhook targets (that is the SSRF guard working).
+          E2E_SKIP_OUTGOING: '1'
+      - if: failure()
+        run: docker compose --env-file "$RUNNER_TEMP/stack.env" logs --tail 200
+      - if: always()
+        run: docker compose --env-file "$RUNNER_TEMP/stack.env" --profile dev down -v

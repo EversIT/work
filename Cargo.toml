@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = ["apps/backend"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+rust-version = "1.85"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
