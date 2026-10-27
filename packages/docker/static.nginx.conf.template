@@ -1,0 +1,39 @@
+server {
+    listen 8080;
+    root /usr/share/nginx/html;
+    index index.html;
+    server_tokens off;
+    # Redirects keep the address the visitor used, not the container's port.
+    absolute_redirect off;
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+    # VitePress `cleanUrls`: /install is served from install.html.
+    location / {
+        try_files $uri $uri.html $uri/ =404;
+    }
+
+    # Hashed build output never changes.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # The live demo, served below /demo by its own container (work-demo), so it needs no
+    # subdomain. The address is looked up when someone opens it, not when nginx starts, so the
+    # documentation also runs without the demo. DEMO_UPSTREAM and DNS_RESOLVER are set in the
+    # image and can be changed with environment variables.
+    location ~ ^/demo(/.*)?$ {
+        resolver ${DNS_RESOLVER} valid=10s ipv6=off;
+        set $demo_upstream http://${DEMO_UPSTREAM};
+        proxy_pass $demo_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_intercept_errors on;
+    }
+
+    error_page 404 /404.html;
+}

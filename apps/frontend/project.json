@@ -6,15 +6,17 @@
   "tags": [],
   "targets": {
     "orval": {
-      "command": "orval --config=apps/frontend/orval.config.ts"
-    },
-    "serve": {
-      "executor": "@nx/next:dev-server",
+      "command": "orval --config=apps/frontend/orval.config.ts",
       "options": {
-        "env": {
-          "NODE_ENV": "development"
-        }
-      }
+        "cwd": "{workspaceRoot}"
+      },
+      "inputs": [
+        "{workspaceRoot}/apps/backend/openapi.json",
+        "{projectRoot}/orval.config.ts",
+        "{projectRoot}/src/api/fetcher.ts"
+      ],
+      "outputs": ["{projectRoot}/src/api/generated"],
+      "cache": true
     },
     "build": {
       "defaultConfiguration": "production",
@@ -26,13 +28,22 @@
       ]
     },
     "container:local": {
+      "executor": "@nx-tools/nx-container:build",
+      "dependsOn": ["build"],
       "options": {
-        "file": "{workspaceRoot}/next.Dockerfile"
+        "engine": "docker",
+        "file": "{workspaceRoot}/packages/docker/next.Dockerfile",
+        "build-args": ["APP_NAME=frontend"],
+        "metadata": {
+          "images": ["work-frontend"],
+          "load": "true",
+          "tags": ["latest"]
+        }
       }
     },
     "container": {
       "options": {
-        "file": "{workspaceRoot}/next.Dockerfile",
+        "file": "{workspaceRoot}/packages/docker/next.Dockerfile",
         "cache-from": ["type=registry,ref=${EVERSIT_WORK_FRONTEND}:buildcache"],
         "cache-to": [
           "type=registry,ref=${EVERSIT_WORK_FRONTEND}:buildcache,mode=max"
@@ -50,8 +61,51 @@
             "type=semver,pattern={{major}}.{{minor}}",
             "type=sha,prefix=sha-"
           ]
+        },
+        "engine": "docker",
+        "build-args": ["APP_NAME=frontend"]
+      },
+      "executor": "@nx-tools/nx-container:build",
+      "dependsOn": ["build"]
+    },
+    "dev": {
+      "dependsOn": [
+        {
+          "target": "orval",
+          "projects": "frontend"
         }
-      }
+      ]
+    },
+    "test": {
+      "dependsOn": [
+        {
+          "target": "orval",
+          "projects": "frontend"
+        }
+      ]
+    },
+    "test-ci": {
+      "dependsOn": [
+        {
+          "target": "orval",
+          "projects": "frontend"
+        }
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        {
+          "target": "orval",
+          "projects": "frontend"
+        }
+      ]
+    },
+    "api": {
+      "command": "nx run backend:openapi && nx run frontend:orval",
+      "options": {
+        "cwd": "{workspaceRoot}"
+      },
+      "// about": "After an API change: regenerates apps/backend/openapi.json from the Rust code (needs cargo), then the typed client from it. `orval` alone reads the committed document and needs no Rust."
     }
   }
 }

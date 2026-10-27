@@ -1,0 +1,14 @@
+name: Question
+description: Ask how something works or how to set it up
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: Please look at the README and `apps/docs/src/` first; they answer most setup questions.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What are you trying to do, what did you try, and where are you stuck?
+    validations:
+      required: true

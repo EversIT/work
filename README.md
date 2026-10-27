@@ -1,109 +1,105 @@
-# New Nx Repository
+# work
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+An open-source, self-hosted work-management tool in the spirit of Jira Cloud: projects with boards, backlog
+and sprints, issue keys (`WORK-12`), issue types, priorities, story points, rich-text descriptions that several
+people edit at once, automations with webhooks, and a documented API with personal API tokens.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+A **Rust** backend (Axum, SQLx, PostgreSQL) and a **Next.js** frontend on **HeroUI v3**.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/docs/technologies/typescript/introduction?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+## Features
 
-🚀 If you haven't connected to Nx Cloud yet, [complete your setup here](https://cloud.nx.app/get-started). Get faster builds with remote caching, distributed task execution, and self-healing CI. [See how your workspace can benefit](#nx-cloud).
+- **Projects** (Kanban or Scrum), created in one step, grouped in spaces (public or private with per-user grants)
+  inside workspaces with an issue key prefix. Roles per project: viewer, member, admin, owner.
+- **Board, backlog, list, table, calendar and timeline.** Drag and drop between statuses and sprints; group list
+  and table by status or any field.
+- **Issues** with type, summary, rich-text description (live editing by several people), assignee, reporter,
+  priority, labels, story points, dates, child issues, comments with formatting and attachments, history,
+  watchers and notifications (live, e-mail, Slack). Custom issue types and fields, and contact, company and
+  deal layouts for light CRM use.
+- **Search and filters** from the top bar, quick filters and saved filters per view.
+- **Automations:** triggers (issue created, field changed, status changed, comment, assignee changed, a date
+  arrives, incoming webhook) and actions (set field, move, assign, comment, create issue, send webhook, send e-mail).
+- **API:** everything the UI does is a documented REST call. Use `Authorization: Bearer wrk_…` or, Jira-style,
+  Basic `email:token`. The OpenAPI document is at `/api/v1/openapi.json`.
+- **Sign-in:** password with a policy and lock-out, **passkeys (WebAuthn)**, **authenticator-app codes**,
+  e-mail confirmation, and single sign-on with **Google, GitHub, Microsoft, Slack, any OpenID Connect provider
+  and SAML 2.0**.
+- **Administration:** an admin panel for the instance's name, description, favicon and accent colour, an overview
+  of users, projects and settings, user management and an audit log.
+- **Files** on local disk, S3 (or compatible) or Azure Blob Storage.
+- **English and German.**
 
-## Generate a library
+## Quick start
 
-```sh
-npx nx g @nx/js:lib packages/pkg1 --publishable --importPath=@my-org/pkg1
-```
-
-## Run tasks
-
-To build the library use:
-
-```sh
-npx nx run pkg1:build
-```
-
-To run any task with Nx use:
-
-```sh
-npx nx run <project-name>:<target>
-```
-
-These targets are either [inferred automatically](https://nx.dev/docs/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
-
-[More about running tasks in the docs &raquo;](https://nx.dev/docs/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Versioning and releasing
-
-To version and release the library use
-
-```
-npx nx release
-```
-
-Pass `--dry-run` to see what would happen without actually releasing the library.
-
-[Learn more about Nx release &raquo;](https://nx.dev/docs/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Keep TypeScript project references up to date
-
-Nx automatically updates TypeScript [project references](https://www.typescriptlang.org/docs/handbook/project-references.html) in `tsconfig.json` files to ensure they remain accurate based on your project dependencies (`import` or `require` statements). This sync is automatically done when running tasks such as `build` or `typecheck`, which require updated references to function correctly.
-
-To manually trigger the process to sync the project graph dependencies information to the TypeScript project references, run the following command:
+Requirements: Node 24+, Rust (via [rustup](https://rustup.rs)), PostgreSQL 15+, Docker for images and tests.
 
 ```sh
-npx nx sync
+npm ci
+cp deploy/.env.example .env     # fill in the required values; there are no defaults for secrets
+npx nx run backend:serve        # needs the WORK_* variables from .env in its environment
+npx nx run frontend:dev
 ```
 
-You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
+The first account you create is the instance administrator.
+
+With Docker:
 
 ```sh
-npx nx sync:check
+npx nx run-many -t container:local
+docker compose -f deploy/docker-compose.yml --env-file .env up
 ```
 
-[Learn more about nx sync](https://nx.dev/reference/nx-commands#sync)
+Compose refuses to start when a secret is missing and publishes only `127.0.0.1:3000`; put a TLS-terminating
+reverse proxy in front for production and set `WORK_FRONTEND_URL` to the public `https://` address.
 
-## Nx Cloud
+## Documentation
 
-Nx Cloud ensures a [fast and scalable CI](https://nx.dev/nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
+|                                                                    |                                                         |
+| ------------------------------------------------------------------ | ------------------------------------------------------- |
+| [apps/docs/src/DEVELOPMENT.md](apps/docs/src/DEVELOPMENT.md)       | set up, tests, conventions, recipes                     |
+| [apps/docs/src/ARCHITECTURE.md](apps/docs/src/ARCHITECTURE.md)     | how the code is organised and why                       |
+| [apps/docs/src/CONFIGURATION.md](apps/docs/src/CONFIGURATION.md)   | every environment variable                              |
+| [apps/docs/src/SECURITY-MODEL.md](apps/docs/src/SECURITY-MODEL.md) | how it is protected, and what is left                   |
+| [apps/docs/src/DATA-MIGRATION.md](apps/docs/src/DATA-MIGRATION.md) | importing from the NestJS/Vue project this derives from |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                                 | how to contribute                                       |
+| [SECURITY.md](SECURITY.md)                                         | how to report a vulnerability                           |
 
-- [Remote caching](https://nx.dev/docs/features/ci-features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/docs/features/ci-features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/docs/features/ci-features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/docs/features/ci-features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-### Set up CI (non-Github Actions CI)
-
-**Note:** This is only required if your CI provider is not GitHub Actions.
-
-Use the following command to configure a CI workflow for your workspace:
+## Using the API
 
 ```sh
-npx nx g ci-workflow
+curl -H "Authorization: Bearer wrk_…" https://work.example.com/api/v1/me
+curl -u you@example.com:wrk_… https://work.example.com/api/v1/projects
+curl -X POST -H "Authorization: Bearer wrk_…" -H "content-type: application/json" \
+     -d '{"data":{"title":"Created through the API"}}' https://work.example.com/api/v1/lists/<list-id>/cards
 ```
 
-[Learn more about Nx on CI](https://nx.dev/docs/features/ci-features?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Tokens are read-only or read-write, can expire, act with your permissions and can be revoked at any time.
+Managing tokens, passwords and the account itself needs a browser session.
 
-## Install Nx Console
+## Publishing images and releases
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+Images are published to Docker Hub as `eversit/work-backend`, `eversit/work-frontend`, `eversit/work-docs` (the
+documentation site) and `eversit/work-demo` (the demo, see below). Run the **release**
+workflow (Actions, "Run workflow" on `main`): `nx release` derives the next version from the conventional
+commits, updates `CHANGELOG.md`, tags `vX.Y.Z`, creates the GitHub release, and the **publish** workflow pushes
+the images as `X.Y.Z`, `X.Y`, `X` and `latest`. The first run needs "first release" ticked.
 
-[Install Nx Console &raquo;](https://nx.dev/docs/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+One-time setup: create the four public repositories on Docker Hub, and add the repository secrets
+`DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (an access token with Read & Write). To publish somewhere else, set the
+repository variables `IMAGE_REGISTRY` and `IMAGE_NAMESPACE`. The installation guide is in
+[apps/docs](apps/docs/src) (VitePress) and can be published to GitHub Pages by the **docs** workflow or run as its own
+image, `eversit/work-docs`.
 
-## 🔗 Learn More
+## Documentation site and demo
 
-- [Nx Documentation](https://nx.dev/docs)
-- [Crafting Your Workspace Tutorial](https://nx.dev/docs/getting-started/tutorials/crafting-your-workspace)
-- [Module Boundaries](https://nx.dev/docs/features/enforce-module-boundaries)
-- [Releasing Packages](https://nx.dev/docs/features/manage-releases)
-- [Nx Plugins](https://nx.dev/docs/concepts/nx-plugins)
-- [Nx Cloud](https://nx.dev/nx-cloud)
+- **Docs:** `apps/docs` is a [VitePress](https://vitepress.dev) site (pages in `apps/docs/src`).
+  `npx nx run docs:dev` to write, `npx nx run docs:build` to build into `dist/apps/docs`, and the `work-docs` image
+  serves it with nginx.
+- **Demo:** `apps/demo` builds the frontend with `NEXT_PUBLIC_DEMO=true`. Every API call is then answered in the browser
+  from made-up data (`apps/frontend/src/demo`): no backend, no database, nothing is stored, and a reload starts over.
+  `npx nx run demo:dev` (port 3100) or `docker run -p 3000:3000 eversit/work-demo`.
 
-## 💬 Community
+## License
 
-Join the Nx community:
-
-- [Discord](https://go.nx.dev/community)
-- [X (Twitter)](https://twitter.com/nxdevtools)
-- [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [YouTube](https://www.youtube.com/@nxdevtools)
-- [Blog](https://nx.dev/blog)
+MIT, see [LICENSE](LICENSE). The license keeps the copyright notice of the original project this code derives
+from, as the MIT license requires.

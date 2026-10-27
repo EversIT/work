@@ -1,26 +1,44 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import createIntlMiddleware from 'next-intl/middleware';
-import { routing } from './i18n/routing';
+import { buildCsp, newNonce } from './lib/csp';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
-
-const handleI18nRouting = createIntlMiddleware(routing);
+const isDev = process.env.NODE_ENV !== 'production';
 
 export default function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
-  if (pathname.startsWith('/api/v1/')) {
+  // The demo has no backend: its API calls never leave the browser.
+  if (
+    pathname.startsWith('/api/v1/') &&
+    process.env.NEXT_PUBLIC_DEMO !== 'true'
+  ) {
     const target = new URL(pathname + search, BACKEND_URL);
     return NextResponse.rewrite(target);
   }
 
-  return handleI18nRouting(request);
+  // Every page response gets its own nonce. It travels to the renderer in the request headers
+  // (that is where Next looks for it) and to the browser in the response header.
+  const nonce = newNonce();
+  const csp = buildCsp(nonce, isDev);
+  const headers = new Headers(request.headers);
+  headers.set('x-nonce', nonce);
+  headers.set('Content-Security-Policy', csp);
+  const response = NextResponse.next({ request: { headers } });
+  response.headers.set('Content-Security-Policy', csp);
+  return response;
 }
 
 export const config = {
   matcher: [
     '/api/v1/:path*',
-    '/((?!api|trpc|_next|_vercel|.*\\..*).*)',
+    {
+      source:
+        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+      missing: [
+        { type: 'header', key: 'next-router-prefetch' },
+        { type: 'header', key: 'purpose', value: 'prefetch' },
+      ],
+    },
   ],
 };

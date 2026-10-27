@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = ["apps/backend"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+rust-version = "1.85"
+
+# Debug builds are what CI compiles and caches. Line tables are enough for backtraces; full debug
+# information adds about a third to the compile time and a good third to the size of the cache.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

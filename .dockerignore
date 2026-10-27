@@ -1,0 +1,13 @@
+# Whitelist: images only package prebuilt artifacts, so the build context stays tiny and no source,
+# .env file or git history can end up in an image.
+*
+!dist/apps/frontend/standalone
+!dist/apps/frontend/static
+!apps/frontend/public
+!dist/target/release/work-backend
+!dist/target/aarch64-unknown-linux-gnu/release/work-backend
+!dist/target-linux/release/work-backend
+!dist/apps/docs
+!dist/apps/frontend-demo/standalone
+!dist/apps/frontend-demo/static
+!packages/docker/static.nginx.conf.template

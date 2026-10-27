@@ -1,0 +1,17 @@
+{
+  "name": "frontend-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/frontend-e2e/src",
+  "tags": [],
+  "implicitDependencies": ["frontend"],
+  "targets": {
+    "e2e": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config=apps/frontend-e2e/playwright.config.ts",
+        "cwd": "{workspaceRoot}"
+      }
+    }
+  }
+}

@@ -1,17 +1,16 @@
 name: publish
 
-# Mirrors nx's own trigger shape (nrwl/nx/.github/workflows/publish.yml):
-# a manual dispatch and a release trigger - just pointed at Docker images
-# instead of the npm registry. Builds every app that has a `container`
-# target and pushes it to GHCR - no npm package is published, this
-# workspace only ships containers. tunnel-client additionally pushes to
-# Docker Hub (see its project.json) since that's the one image customers
-# pull directly.
+# Builds the container images (backend, frontend, docs, demo) and pushes them to Docker Hub
+# (docker.io/eversit/work-backend, work-frontend, work-docs and work-demo by default). No npm package
+# is published, this workspace only ships containers.
 #
-# A `release` (or a manual run with `build_all: true`) rebuilds *every*
-# image so the tag gets a complete, self-consistent set. A plain manual
-# run only rebuilds the images `nx affected` marks as changed since the
-# last successful run of this workflow.
+# Triggers: a manual dispatch, a published GitHub release, and `workflow_call` from the release
+# workflow (a release created with the built-in GITHUB_TOKEN does not fire the `release` event, so
+# release.yml calls this workflow itself and passes the new tag as `ref`).
+#
+# A release (or a manual run with `build_all: true`) rebuilds every image so the tag gets a
+# complete, self-consistent set; a plain manual run only rebuilds what `nx affected` marks as
+# changed since the last successful run.
 on:
   workflow_dispatch:
     inputs:
@@ -21,11 +20,21 @@ on:
         default: false
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git tag to build and publish (e.g. v1.2.3)'
+        type: string
+        required: true
 
 run-name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Image Build' || format('Release Image Build for {0}', github.ref_name) }}
 
 env:
-  REGISTRY: ghcr.io
+  # Docker Hub by default; needs the DOCKERHUB_USERNAME / DOCKERHUB_TOKEN repository secrets
+  # (an access token with "Read & Write", not the account password). To publish elsewhere set the
+  # repository variables IMAGE_REGISTRY (e.g. ghcr.io) and IMAGE_NAMESPACE. No workflow edit needed.
+  REGISTRY: ${{ vars.IMAGE_REGISTRY || 'docker.io' }}
+  IMAGE_NAMESPACE: ${{ vars.IMAGE_NAMESPACE || 'eversit' }}
 
 jobs:
   publish:
@@ -52,8 +61,9 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
+          ref: ${{ inputs.ref || github.ref }}
 
-      # Rust apps' container images are multi-arch (see rust.Dockerfile),
+      # Rust apps' container images are multi-arch (see packages/docker/rust.Dockerfile),
       # but that Dockerfile only copies an already-built binary - it never
       # compiles anything itself (avoids recompiling the whole dependency
       # tree a second time inside Docker on top of the `nx run <app>:build`
@@ -101,7 +111,7 @@ jobs:
       - name: Decide build scope
         id: scope
         run: |
-          if [ "${{ github.event_name }}" = "release" ] || [ "${{ inputs.build_all }}" = "true" ]; then
+          if [ "${{ github.event_name }}" = "release" ] || [ "${{ inputs.build_all }}" = "true" ] || [ -n "${{ inputs.ref }}" ]; then
             echo "all=true" >> "$GITHUB_OUTPUT"
           else
             echo "all=false" >> "$GITHUB_OUTPUT"
@@ -143,16 +153,29 @@ jobs:
         with:
           main-branch-name: 'main'
 
-      # GHCR requires a lowercase image namespace; github.repository_owner keeps
-      # its original casing. Resolve every image ref once, into $GITHUB_ENV, so
+      # Registries want a lowercase namespace. Resolve every image ref once, into $GITHUB_ENV, so
       # the `container` targets (which read these EVERSIT_* vars) pick them up.
       - name: Resolve image refs
         run: |
-          owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+          owner=$(echo "${IMAGE_NAMESPACE}" | tr '[:upper:]' '[:lower:]')
           base="${REGISTRY}/${owner}"
           {
-            echo "EVERSIT_WORK_BACKEND=${base}/backend"
-            echo "EVERSIT_WORK_FRONTEND=${base}/frontend"
+            echo "EVERSIT_WORK_BACKEND=${base}/work-backend"
+            echo "EVERSIT_WORK_FRONTEND=${base}/work-frontend"
+            echo "EVERSIT_WORK_DOCS=${base}/work-docs"
+            echo "EVERSIT_WORK_DEMO=${base}/work-demo"
+          } >> "$GITHUB_ENV"
+
+      # When called from the release workflow the run itself belongs to a branch, but the images
+      # are for a tag: point the tag rules (`type=semver`, `type=ref,event=tag`) at that tag.
+      - name: Use the release tag as the image ref
+        if: inputs.ref != ''
+        run: |
+          {
+            echo "GITHUB_REF=refs/tags/${{ inputs.ref }}"
+            echo "GITHUB_REF_NAME=${{ inputs.ref }}"
+            echo "GITHUB_REF_TYPE=tag"
+            echo "GITHUB_SHA=$(git rev-parse HEAD)"
           } >> "$GITHUB_ENV"
 
       - name: Set up QEMU (multi-arch emulation)
@@ -162,19 +185,15 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
+        if: env.REGISTRY == 'ghcr.io'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # tunnel-client is the one image customers pull directly (see its
-      # project.json's container target), so it's additionally published to
-      # Docker Hub under eversit/eversitd - a plain `docker pull` shouldn't
-      # require a GHCR login. Everything else stays GHCR-only. Requires the
-      # DOCKERHUB_USERNAME/DOCKERHUB_TOKEN repo secrets (a Docker Hub access
-      # token, not the account password).
       - name: Log in to Docker Hub
+        if: env.REGISTRY == 'docker.io'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
