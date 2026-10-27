@@ -81,6 +81,30 @@
           "projects": "frontend"
         }
       ]
+    },
+    "test": {
+      "dependsOn": [
+        {
+          "target": "orval",
+          "projects": "frontend"
+        }
+      ]
+    },
+    "test-ci": {
+      "dependsOn": [
+        {
+          "target": "orval",
+          "projects": "frontend"
+        }
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        {
+          "target": "orval",
+          "projects": "frontend"
+        }
+      ]
     }
   }
 }
