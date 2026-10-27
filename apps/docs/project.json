@@ -26,48 +26,6 @@
       "command": "vitepress preview apps/docs",
       "dependsOn": ["build"],
       "options": { "cwd": "{workspaceRoot}" }
-    },
-    "container:local": {
-      "executor": "@nx-tools/nx-container:build",
-      "dependsOn": ["build"],
-      "options": {
-        "engine": "docker",
-        "file": "{workspaceRoot}/packages/docker/static.Dockerfile",
-        "build-args": ["DIST_DIR=dist/apps/docs"],
-        "metadata": {
-          "images": ["work-docs"],
-          "load": "true",
-          "tags": ["latest"]
-        }
-      }
-    },
-    "container": {
-      "executor": "@nx-tools/nx-container:build",
-      "dependsOn": ["build"],
-      "options": {
-        "engine": "docker",
-        "file": "{workspaceRoot}/packages/docker/static.Dockerfile",
-        "build-args": ["DIST_DIR=dist/apps/docs"],
-        "platforms": ["linux/amd64", "linux/arm64"],
-        "cache-from": ["type=registry,ref=${EVERSIT_WORK_DOCS}:buildcache"],
-        "cache-to": [
-          "type=registry,ref=${EVERSIT_WORK_DOCS}:buildcache,mode=max"
-        ],
-        "metadata": {
-          "images": ["${EVERSIT_WORK_DOCS}"],
-          "tags": [
-            "latest",
-            "type=schedule",
-            "type=ref,event=branch",
-            "type=ref,event=tag",
-            "type=ref,event=pr",
-            "type=semver,pattern={{version}}",
-            "type=semver,pattern={{major}}",
-            "type=semver,pattern={{major}}.{{minor}}",
-            "type=sha,prefix=sha-"
-          ]
-        }
-      }
     }
   }
 }

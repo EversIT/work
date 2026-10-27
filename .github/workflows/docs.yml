@@ -1,9 +1,8 @@
 name: docs
 
 # Builds the documentation site (apps/docs, VitePress) and publishes it to GitHub Pages.
-# One-time setup: Settings -> Pages -> Source: "GitHub Actions". The site is also available as an
-# image (eversit/work-docs, built by the publish workflow) and as static files in dist/apps/docs,
-# so any other host works too.
+# One-time setup: Settings -> Pages -> Source: "GitHub Actions". The site is also available as static
+# files in dist/apps/docs, so any other host works too.
 #
 # DOCS_BASE is the path the site is served under: a project site on GitHub Pages lives at
 # /<repo>/; with a custom domain set the repository variable DOCS_BASE to /.
