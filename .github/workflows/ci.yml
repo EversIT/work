@@ -45,7 +45,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
 
       - name: Set SHAs
-        uses: nrwl/nx-set-shas@310288c04d90696f9f1bc27c5e3caea6642b53d4 # v5.0.0
+        uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
         with:
           main-branch-name: 'main'
 
