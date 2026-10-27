@@ -2,7 +2,10 @@
   "name": "@eversit-work/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "check-lock-files": "node ./scripts/check-lock-files.js",
+    "publish:local": "bash ./scripts/publish-local.sh"
+  },
   "private": true,
   "devDependencies": {
     "@monodon/rust": "^3.0.0",
