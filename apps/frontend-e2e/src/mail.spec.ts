@@ -5,24 +5,45 @@ import { login, newUser, register } from './helpers';
 // start one). Without it they skip themselves.
 const MAILPIT = process.env.E2E_MAILPIT_API ?? 'http://127.0.0.1:58025';
 
-async function mailFor(request: import('@playwright/test').APIRequestContext, to: string) {
+async function mailFor(
+  request: import('@playwright/test').APIRequestContext,
+  to: string,
+) {
   for (let i = 0; i < 60; i++) {
-    const found = await request.get(`${MAILPIT}/api/v1/search`, { params: { query: `to:${to}` } }).then((r) => r.json()).catch(() => ({ messages: [] }));
+    const found = await request
+      .get(`${MAILPIT}/api/v1/search`, { params: { query: `to:${to}` } })
+      .then((r) => r.json())
+      .catch(() => ({ messages: [] }));
     const first = found.messages?.[0];
     if (first) {
-      const full = await (await request.get(`${MAILPIT}/api/v1/message/${first.ID}`)).json();
-      return { subject: full.Subject as string, text: full.Text as string, html: full.HTML as string };
+      const full = await (
+        await request.get(`${MAILPIT}/api/v1/message/${first.ID}`)
+      ).json();
+      return {
+        subject: full.Subject as string,
+        text: full.Text as string,
+        html: full.HTML as string,
+      };
     }
     await new Promise((r) => setTimeout(r, 200));
   }
   return null;
 }
 
-async function mailpitUp(request: import('@playwright/test').APIRequestContext) {
-  return request.get(`${MAILPIT}/api/v1/info`).then((r) => r.ok()).catch(() => false);
+async function mailpitUp(
+  request: import('@playwright/test').APIRequestContext,
+) {
+  return request
+    .get(`${MAILPIT}/api/v1/info`)
+    .then((r) => r.ok())
+    .catch(() => false);
 }
 
-test('forgot password: e-mail link, single use, old sessions are signed out', async ({ page, request, browser }) => {
+test('forgot password: e-mail link, single use, old sessions are signed out', async ({
+  page,
+  request,
+  browser,
+}) => {
   test.skip(!(await mailpitUp(request)), 'Mailpit is not running');
   const u = newUser();
   // A second, already signed-in browser: it must lose its session when the password is reset.
@@ -35,7 +56,9 @@ test('forgot password: e-mail link, single use, old sessions are signed out', as
   await page.waitForLoadState('networkidle'); // the dev server may reload once after compiling the route
   await page.getByLabel('Email').fill(u.email);
   await page.getByRole('button', { name: 'Send reset link' }).click();
-  await expect(page.getByTestId('reset-sent')).toContainText('If an account exists');
+  await expect(page.getByTestId('reset-sent')).toContainText(
+    'If an account exists',
+  );
 
   // The same message appears for an address nobody registered, and no mail is sent to it.
   const ghost = `ghost-${Date.now()}@example.test`;
@@ -48,7 +71,9 @@ test('forgot password: e-mail link, single use, old sessions are signed out', as
   const mail = await mailFor(request, u.email);
   expect(mail?.subject).toContain('Reset');
   expect(await mailFor(request, ghost)).toBeNull();
-  const link = mail!.text.match(/https?:\/\/\S+reset-password\?token=[\w-]+/)![0];
+  const link = mail!.text.match(
+    /https?:\/\/\S+reset-password\?token=[\w-]+/,
+  )![0];
   const token = new URL(link).searchParams.get('token')!;
 
   const next = `${u.password}-new`;
@@ -72,7 +97,10 @@ test('forgot password: e-mail link, single use, old sessions are signed out', as
   await expect(other).toHaveURL(/\/login/);
 });
 
-test('invitation by e-mail only works for the invited address', async ({ browser, request }) => {
+test('invitation by e-mail only works for the invited address', async ({
+  browser,
+  request,
+}) => {
   test.skip(!(await mailpitUp(request)), 'Mailpit is not running');
   const owner = await (await browser.newContext()).newPage();
   await register(owner);
@@ -80,7 +108,7 @@ test('invitation by e-mail only works for the invited address', async ({ browser
   await owner.getByRole('button', { name: 'Create workspace' }).click();
   await expect(owner.getByTestId('workspace-title')).toHaveText('Acme');
   await owner.getByTestId('workspace-settings-link').click();
-  await owner.getByRole('link', { name: 'Project members' }).click();
+  await owner.getByTestId('tab-people').click();
 
   const guest = newUser();
   await owner.getByTestId('invite').click();
