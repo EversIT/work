@@ -1,0 +1,94 @@
+{
+  "name": "demo",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/frontend",
+  "projectType": "application",
+  "tags": [],
+  "implicitDependencies": ["frontend"],
+  "// about": "The demo is the frontend built with NEXT_PUBLIC_DEMO=true: every API call is answered in the browser from made-up data (apps/frontend/src/demo), so it needs no backend and stores nothing. This project only builds and ships it. It is built to be served below /demo, so the documentation site can show it on its own address without a subdomain.",
+  "targets": {
+    "dev": {
+      "command": "next dev --port 3100",
+      "options": {
+        "cwd": "{workspaceRoot}/apps/frontend",
+        "env": {
+          "NEXT_PUBLIC_DEMO": "true",
+          "NEXT_DIST_DIR": "../../dist/apps/frontend-demo-dev",
+          "NEXT_BASE_PATH": "/demo"
+        }
+      },
+      "dependsOn": [
+        {
+          "target": "orval",
+          "projects": "frontend"
+        }
+      ]
+    },
+    "build": {
+      "command": "next build",
+      "options": {
+        "cwd": "{workspaceRoot}/apps/frontend",
+        "env": {
+          "NEXT_PUBLIC_DEMO": "true",
+          "NEXT_DIST_DIR": "../../dist/apps/frontend-demo",
+          "NEXT_BASE_PATH": "/demo"
+        }
+      },
+      "dependsOn": [
+        {
+          "target": "orval",
+          "projects": "frontend"
+        }
+      ],
+      "inputs": [
+        "{workspaceRoot}/apps/frontend/src/**/*",
+        "{workspaceRoot}/apps/frontend/messages/**/*",
+        "{workspaceRoot}/apps/frontend/public/**/*",
+        "{workspaceRoot}/apps/frontend/next.config.ts"
+      ],
+      "outputs": ["{workspaceRoot}/dist/apps/frontend-demo"],
+      "cache": true
+    },
+    "container:local": {
+      "executor": "@nx-tools/nx-container:build",
+      "dependsOn": ["build"],
+      "options": {
+        "engine": "docker",
+        "file": "{workspaceRoot}/packages/docker/next.Dockerfile",
+        "build-args": ["APP_NAME=frontend", "DIST_NAME=frontend-demo"],
+        "metadata": {
+          "images": ["work-demo"],
+          "load": "true",
+          "tags": ["latest"]
+        }
+      }
+    },
+    "container": {
+      "executor": "@nx-tools/nx-container:build",
+      "dependsOn": ["build"],
+      "options": {
+        "engine": "docker",
+        "file": "{workspaceRoot}/packages/docker/next.Dockerfile",
+        "build-args": ["APP_NAME=frontend", "DIST_NAME=frontend-demo"],
+        "cache-from": ["type=registry,ref=${EVERSIT_WORK_DEMO}:buildcache"],
+        "cache-to": [
+          "type=registry,ref=${EVERSIT_WORK_DEMO}:buildcache,mode=max"
+        ],
+        "metadata": {
+          "images": ["${EVERSIT_WORK_DEMO}"],
+          "tags": [
+            "latest",
+            "type=schedule",
+            "type=ref,event=branch",
+            "type=ref,event=tag",
+            "type=ref,event=pr",
+            "type=semver,pattern={{version}}",
+            "type=semver,pattern={{major}}",
+            "type=semver,pattern={{major}}.{{minor}}",
+            "type=sha,prefix=sha-"
+          ]
+        }
+      }
+    }
+  }
+}
