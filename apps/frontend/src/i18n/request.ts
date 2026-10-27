@@ -1,6 +1,11 @@
 import { cookies, headers } from 'next/headers';
 import { getRequestConfig } from 'next-intl/server';
-import { DEFAULT_LOCALE, isLocale, LOCALE_COOKIE, type Locale } from './routing';
+import {
+  DEFAULT_LOCALE,
+  isLocale,
+  LOCALE_COOKIE,
+  type Locale,
+} from './routing';
 
 /** Cookie first, then the best Accept-Language match, then the default. */
 async function detectLocale(): Promise<Locale> {

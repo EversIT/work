@@ -9,7 +9,15 @@ import { errorKind, serverMessage } from '../../lib/api';
 import { FormDialog } from '../ui/form-dialog';
 import { TextInput } from '../ui/inputs';
 
-export function CreateSpaceDialog({ workspaceId, isOpen, onClose }: { workspaceId: string; isOpen: boolean; onClose: () => void }) {
+export function CreateSpaceDialog({
+  workspaceId,
+  isOpen,
+  onClose,
+}: {
+  workspaceId: string;
+  isOpen: boolean;
+  onClose: () => void;
+}) {
   const t = useTranslations('shell');
   const te = useTranslations('errors');
   const qc = useQueryClient();
@@ -30,7 +38,10 @@ export function CreateSpaceDialog({ workspaceId, isOpen, onClose }: { workspaceI
         try {
           await create.mutateAsync({
             id: workspaceId,
-            data: { name: String(f.get('name')), access_type: priv ? 'private' : 'public' },
+            data: {
+              name: String(f.get('name')),
+              access_type: priv ? 'private' : 'public',
+            },
           });
           await qc.invalidateQueries();
           onClose();
@@ -39,12 +50,18 @@ export function CreateSpaceDialog({ workspaceId, isOpen, onClose }: { workspaceI
         }
       }}
     >
-      <TextInput label={t('name')} name="name" required maxLength={100} autoFocus />
-      <Switch className="flex flex-row items-center gap-2" isSelected={priv} onChange={setPriv}>
+      <TextInput label={t('name')} name="name" required maxLength={100} />
+      <Switch
+        className="flex flex-row items-center gap-2"
+        isSelected={priv}
+        onChange={setPriv}
+      >
         <Switch.Control>
           <Switch.Thumb />
         </Switch.Control>
-        <Switch.Content><Label>{t('privateSpace')}</Label></Switch.Content>
+        <Switch.Content>
+          <Label>{t('privateSpace')}</Label>
+        </Switch.Content>
       </Switch>
     </FormDialog>
   );

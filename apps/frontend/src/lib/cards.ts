@@ -17,8 +17,10 @@ export function useCards(listId: string | undefined, search: SearchBody) {
   });
 }
 
-export const titleField = (fields: FieldOut[]) => fields.find((f) => f.is_title);
-export const assigneeField = (fields: FieldOut[]) => fields.find((f) => f.is_assignee);
+export const titleField = (fields: FieldOut[]) =>
+  fields.find((f) => f.is_title);
+export const assigneeField = (fields: FieldOut[]) =>
+  fields.find((f) => f.is_assignee);
 
 export function cardTitle(card: CardOut, fields: FieldOut[]): string {
   const f = titleField(fields);
@@ -31,6 +33,7 @@ export function stageOf(card: CardOut, listId: string): string | undefined {
 }
 
 export function asStrings(v: unknown): string[] {
-  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string');
+  if (Array.isArray(v))
+    return v.filter((x): x is string => typeof x === 'string');
   return typeof v === 'string' && v ? [v] : [];
 }

@@ -7,7 +7,10 @@ import { useListProjects } from '../api/generated/projects/projects';
 import { useMe } from '../api/generated/auth/auth';
 import { useListCardTypes } from '../api/generated/card-types/card-types';
 import { useListProjectMembers } from '../api/generated/projects/projects';
-import { getWorkspace } from '../api/generated/workspaces/workspaces';
+import {
+  getWorkspace,
+  useGetWorkspaceByKey,
+} from '../api/generated/workspaces/workspaces';
 import { body } from './api';
 
 export function useCurrentUser() {
@@ -21,7 +24,10 @@ export function useProjects() {
 /** All workspaces the user can reach, each with the project it belongs to. */
 export function useAllWorkspaces() {
   const projectsQuery = useListProjects();
-  const projects = useMemo(() => body(projectsQuery.data) ?? [], [projectsQuery.data]);
+  const projects = useMemo(
+    () => body(projectsQuery.data) ?? [],
+    [projectsQuery.data],
+  );
   const results = useQueries({
     queries: projects.map((p) => ({
       queryKey: ['workspaces', p.id],
@@ -43,9 +49,24 @@ export function useAllWorkspaces() {
   return { workspaces, projects, loading };
 }
 
+/** The workspace behind a key from the address (`/projects/ACME`), with the states a page must handle. */
+export function useWorkspaceByKey(key: string | undefined) {
+  const q = useGetWorkspaceByKey(key ?? '', {
+    query: { enabled: !!key, retry: false },
+  });
+  return {
+    workspace: body(q.data),
+    failed: q.isError,
+    loading: !!key && q.isLoading,
+  };
+}
+
 export function useWorkspace(workspaceId: string) {
   return body(
-    useQuery({ queryKey: ['workspace', workspaceId], queryFn: () => getWorkspace(workspaceId) }).data,
+    useQuery({
+      queryKey: ['workspace', workspaceId],
+      queryFn: () => getWorkspace(workspaceId),
+    }).data,
   );
 }
 
@@ -55,6 +76,10 @@ export function useCardTypes(workspaceId: string) {
 
 export function useMembers(projectId: string | undefined) {
   return (
-    body(useListProjectMembers(projectId ?? '', { query: { enabled: !!projectId, refetchInterval: 30_000 } }).data) ?? []
+    body(
+      useListProjectMembers(projectId ?? '', {
+        query: { enabled: !!projectId, refetchInterval: 30_000 },
+      }).data,
+    ) ?? []
   );
 }

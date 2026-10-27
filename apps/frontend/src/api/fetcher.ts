@@ -9,6 +9,8 @@
  * - On a 401 the request is retried once after a single-flight token refresh.
  */
 
+import { DEMO } from '../demo';
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -37,10 +39,17 @@ export function hasAccessToken() {
 const AUTH_PATHS = [
   '/api/v1/auth/login',
   '/api/v1/auth/register',
+  '/api/v1/auth/verify-email',
+  '/api/v1/auth/mfa/verify',
+  '/api/v1/auth/passkey/login',
   '/api/v1/auth/refresh',
 ];
 
 export async function refreshAccessToken(): Promise<boolean> {
+  if (DEMO) {
+    accessToken = 'demo';
+    return true;
+  }
   refreshing ??= (async () => {
     try {
       const res = await fetch('/api/v1/auth/refresh', {
@@ -74,6 +83,20 @@ export async function apiFetch<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const path = url.split('?')[0];
+
+  // Demo mode: answered in the browser from made-up data, nothing leaves the page.
+  if (DEMO) {
+    // Loaded on demand, so a normal build never ships the made-up data.
+    const { demoRequest } = await import('../demo/server');
+    const r = demoRequest(url, options);
+    // A copy, so later edits to the demo data are seen as changes by the query cache.
+    const data = r.data === undefined ? undefined : structuredClone(r.data);
+    if (r.status >= 400) throw new ApiError(r.status, data);
+    if (AUTH_PATHS.includes(path)) accessToken = 'demo';
+    if (path === '/api/v1/auth/logout') accessToken = null;
+    return { data, status: r.status, headers: new Headers() } as T;
+  }
+
   let res = await send(url, options);
 
   if (
@@ -88,12 +111,13 @@ export async function apiFetch<T>(
   const data = text ? safeJson(text) : undefined;
   if (!res.ok) throw new ApiError(res.status, data);
 
-  // Login/register/refresh responses carry the access token; keep it in memory.
+  // Sign-in responses carry the access token; keep it in memory. (A first step that asks for a
+  // second factor or a confirmation has none.)
   if (
     AUTH_PATHS.includes(path) &&
     data &&
     typeof data === 'object' &&
-    'access_token' in data
+    typeof (data as { access_token?: unknown }).access_token === 'string'
   ) {
     accessToken = (data as { access_token: string }).access_token;
   }

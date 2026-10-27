@@ -16,7 +16,9 @@ export type ServerEvent = {
 /** Subscribes to the caller's own realtime stream (SSE over fetch, so the bearer token can be sent). */
 export function useServerEvents(onEvent: (e: ServerEvent) => void) {
   const handler = useRef(onEvent);
-  handler.current = onEvent;
+  useEffect(() => {
+    handler.current = onEvent;
+  });
 
   useEffect(() => {
     const ctrl = new AbortController();

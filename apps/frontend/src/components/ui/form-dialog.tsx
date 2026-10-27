@@ -30,7 +30,8 @@ export function FormDialog({
 }) {
   const t = useTranslations('common');
   const formId = useId();
-  const mapped = size === 'xs' ? 'sm' : size === 'cover' || size === 'full' ? 'xl' : size;
+  const mapped =
+    size === 'xs' ? 'sm' : size === 'cover' || size === 'full' ? 'xl' : size;
   return (
     <JiraDialog
       isOpen={isOpen}
@@ -42,7 +43,12 @@ export function FormDialog({
           <Button type="button" variant="tertiary" onPress={onClose}>
             {t('cancel')}
           </Button>
-          <Button type="submit" form={formId} variant={danger ? 'danger' : 'primary'} isPending={isPending}>
+          <Button
+            type="submit"
+            form={formId}
+            variant={danger ? 'danger' : 'primary'}
+            isPending={isPending}
+          >
             {submitLabel ?? t('save')}
           </Button>
         </>

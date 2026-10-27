@@ -1,6 +1,18 @@
-import type { CardOut, FieldOut, ListDetail, StageOut, ViewOut } from '../../api/generated/model';
+import type {
+  CardOut,
+  FieldOut,
+  ListDetail,
+  StageOut,
+  ViewOut,
+} from '../../api/generated/model';
 
-export type Member = { user_id: string; first_name: string; last_name: string; email: string; role: string };
+export type Member = {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+};
 
 export type ViewProps = {
   list: ListDetail;

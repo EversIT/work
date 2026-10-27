@@ -1,5 +1,6 @@
 'use client';
 
+import { routes } from '../../lib/routes';
 import { Button, Card, Spinner } from '@heroui/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
@@ -31,7 +32,7 @@ export function Home() {
       /* storage may be unavailable */
     }
     const target = workspaces.find((w) => w.id === last) ?? workspaces[0];
-    router.replace(`/workspaces/${target.id}`);
+    router.replace(routes.workspace(target.key_prefix));
   }, [loading, workspaces, router]);
 
   if (loading || workspaces.length > 0) {
@@ -57,17 +58,30 @@ export function Home() {
               setError(null);
               const name = String(new FormData(e.currentTarget).get('name'));
               try {
-                const projectId = projects[0]?.id ?? (await createProject.mutateAsync({ data: { name: 'My team' } }).then((r) => (r.status === 200 ? r.data.id : undefined)));
+                const projectId =
+                  projects[0]?.id ??
+                  (await createProject
+                    .mutateAsync({ data: { name: 'My team' } })
+                    .then((r) => (r.status === 200 ? r.data.id : undefined)));
                 if (!projectId) return;
-                const ws = await createWorkspace.mutateAsync({ id: projectId, data: { name } });
+                const ws = await createWorkspace.mutateAsync({
+                  id: projectId,
+                  data: { name },
+                });
                 await qc.invalidateQueries();
-                if (ws.status === 200) router.replace(`/workspaces/${ws.data.id}`);
+                if (ws.status === 200)
+                  router.replace(routes.workspace(ws.data.key_prefix));
               } catch (err) {
                 setError(serverMessage(err) ?? te(errorKind(err)));
               }
             }}
           >
-            <TextInput label={t('workspaceName')} name="name" required maxLength={100} autoFocus />
+            <TextInput
+              label={t('workspaceName')}
+              name="name"
+              required
+              maxLength={100}
+            />
             {error && <p className="text-sm text-danger">{error}</p>}
             <Button type="submit" isPending={createWorkspace.isPending}>
               {t('createWorkspace')}

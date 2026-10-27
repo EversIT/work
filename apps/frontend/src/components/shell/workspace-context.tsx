@@ -1,10 +1,20 @@
 'use client';
 
 import { createContext, useContext, useMemo } from 'react';
-import type { CardTypeOut, ListBrief, SpaceTree, WorkspaceOut } from '../../api/generated/model';
+import type {
+  CardTypeOut,
+  ListBrief,
+  SpaceTree,
+  WorkspaceOut,
+} from '../../api/generated/model';
 import { useGetWorkspaceTree } from '../../api/generated/spaces/spaces';
 import { body } from '../../lib/api';
-import { useCardTypes, useCurrentUser, useMembers, useWorkspace } from '../../lib/hooks';
+import {
+  useCardTypes,
+  useCurrentUser,
+  useMembers,
+  useWorkspace,
+} from '../../lib/hooks';
 import type { Member } from '../views/types';
 
 type Ctx = {
@@ -19,8 +29,18 @@ type Ctx = {
 
 const WorkspaceCtx = createContext<Ctx | null>(null);
 
-export function WorkspaceProvider({ workspaceId, children }: { workspaceId: string; children: React.ReactNode }) {
-  const workspace = useWorkspace(workspaceId);
+export function WorkspaceProvider({
+  workspaceId,
+  initial,
+  children,
+}: {
+  workspaceId: string;
+  /** The workspace as the address already resolved it, so keys are known from the first render. */
+  initial?: WorkspaceOut;
+  children: React.ReactNode;
+}) {
+  const fetched = useWorkspace(workspaceId);
+  const workspace = fetched ?? initial;
   const tree = body(useGetWorkspaceTree(workspaceId).data);
   const cardTypes = useCardTypes(workspaceId);
   const members = useMembers(workspace?.project_id) as Member[];
@@ -30,14 +50,18 @@ export function WorkspaceProvider({ workspaceId, children }: { workspaceId: stri
       workspaceId,
       workspace,
       spaces: tree?.spaces ?? [],
-      lists: (tree?.spaces ?? []).flatMap((s) => s.lists.map((l) => ({ ...l, spaceName: s.name }))),
+      lists: (tree?.spaces ?? []).flatMap((s) =>
+        s.lists.map((l) => ({ ...l, spaceName: s.name })),
+      ),
       cardTypes,
       members,
       me,
     }),
     [workspaceId, workspace, tree, cardTypes, members, me],
   );
-  return <WorkspaceCtx.Provider value={value}>{children}</WorkspaceCtx.Provider>;
+  return (
+    <WorkspaceCtx.Provider value={value}>{children}</WorkspaceCtx.Provider>
+  );
 }
 
 export function useWorkspaceCtx(): Ctx {

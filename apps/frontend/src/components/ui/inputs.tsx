@@ -1,6 +1,17 @@
 'use client';
 
-import { Checkbox, CheckboxGroup, FieldError, Input, Label, ListBox, Select, TextArea, TextField } from '@heroui/react';
+import {
+  Checkbox,
+  CheckboxGroup,
+  FieldError,
+  Input,
+  Label,
+  ListBox,
+  Select,
+  TextArea,
+  TextField,
+  SearchField,
+} from '@heroui/react';
 
 export function TextInput({
   label,
@@ -11,8 +22,8 @@ export function TextInput({
   required,
   maxLength,
   placeholder,
-  autoFocus,
   defaultValue,
+  hideLabel,
 }: {
   label: string;
   name?: string;
@@ -23,7 +34,8 @@ export function TextInput({
   required?: boolean;
   maxLength?: number;
   placeholder?: string;
-  autoFocus?: boolean;
+  /** Keep the label for screen readers but do not draw it. */
+  hideLabel?: boolean;
 }) {
   return (
     <TextField
@@ -34,10 +46,9 @@ export function TextInput({
       value={value}
       defaultValue={defaultValue}
       onChange={onChange}
-      autoFocus={autoFocus}
       fullWidth
     >
-      <Label>{label}</Label>
+      <Label className={hideLabel ? 'sr-only' : undefined}>{label}</Label>
       <Input placeholder={placeholder} />
       <FieldError />
     </TextField>
@@ -53,6 +64,7 @@ export function TextAreaInput({
   maxLength,
   defaultValue,
   placeholder,
+  hideLabel,
 }: {
   label: string;
   name?: string;
@@ -62,10 +74,18 @@ export function TextAreaInput({
   rows?: number;
   maxLength?: number;
   placeholder?: string;
+  hideLabel?: boolean;
 }) {
   return (
-    <TextField name={name} value={value} defaultValue={defaultValue} onChange={onChange} maxLength={maxLength} fullWidth>
-      <Label>{label}</Label>
+    <TextField
+      name={name}
+      value={value}
+      defaultValue={defaultValue}
+      onChange={onChange}
+      maxLength={maxLength}
+      fullWidth
+    >
+      <Label className={hideLabel ? 'sr-only' : undefined}>{label}</Label>
       <TextArea rows={rows} placeholder={placeholder} />
     </TextField>
   );
@@ -82,6 +102,7 @@ export function SimpleSelect({
   name,
   allowEmpty,
   testId,
+  hideLabel,
 }: {
   label: string;
   value: string | null | undefined;
@@ -91,6 +112,8 @@ export function SimpleSelect({
   name?: string;
   allowEmpty?: boolean;
   testId?: string;
+  /** The label stays for screen readers but is not drawn (for selects in table-like rows). */
+  hideLabel?: boolean;
 }) {
   return (
     <Select
@@ -101,7 +124,7 @@ export function SimpleSelect({
       fullWidth
       data-testid={testId}
     >
-      <Label>{label}</Label>
+      <Label className={hideLabel ? 'sr-only' : undefined}>{label}</Label>
       <Select.Trigger>
         <Select.Value />
         <Select.Indicator />
@@ -130,25 +153,91 @@ export function MultiCheck({
   value,
   onChange,
   options,
+  hideLabel,
 }: {
   label: string;
   value: string[];
   onChange: (v: string[]) => void;
   options: Option[];
+  hideLabel?: boolean;
 }) {
   return (
     <CheckboxGroup value={value} onChange={onChange} name={label}>
-      <Label>{label}</Label>
+      <Label className={hideLabel ? 'sr-only' : undefined}>{label}</Label>
       <div className="flex flex-wrap gap-x-4 gap-y-1">
         {options.map((o) => (
-          <Checkbox className="flex flex-row items-center gap-2" key={o.value} value={o.value}>
+          <Checkbox
+            className="flex flex-row items-center gap-2"
+            key={o.value}
+            value={o.value}
+          >
             <Checkbox.Control>
               <Checkbox.Indicator />
             </Checkbox.Control>
-            <Checkbox.Content><Label>{o.label}</Label></Checkbox.Content>
+            <Checkbox.Content>
+              <Label>{o.label}</Label>
+            </Checkbox.Content>
           </Checkbox>
         ))}
       </div>
     </CheckboxGroup>
+  );
+}
+
+/** A selectable, read-only value such as a token or an invite link. */
+export function ReadonlyField({
+  label,
+  value,
+  testId,
+}: {
+  label: string;
+  value: string;
+  testId?: string;
+}) {
+  return (
+    <TextField fullWidth isReadOnly value={value} className="flex-1">
+      <Label className="sr-only">{label}</Label>
+      <Input
+        data-testid={testId}
+        className="font-mono text-xs"
+        onFocus={(e) => e.currentTarget.select()}
+      />
+    </TextField>
+  );
+}
+
+/** Search box with a clear button, used above lists and tables. */
+export function SearchBox({
+  label,
+  value,
+  onChange,
+  testId,
+  maxLength = 100,
+  className = 'w-48',
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  testId?: string;
+  maxLength?: number;
+  className?: string;
+}) {
+  return (
+    <SearchField
+      aria-label={label}
+      value={value}
+      onChange={onChange}
+      className={className}
+    >
+      <SearchField.Group>
+        <SearchField.SearchIcon />
+        <SearchField.Input
+          placeholder={label}
+          maxLength={maxLength}
+          data-testid={testId}
+        />
+        <SearchField.ClearButton />
+      </SearchField.Group>
+    </SearchField>
   );
 }

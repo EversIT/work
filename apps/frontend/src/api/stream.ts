@@ -1,11 +1,31 @@
+import { DEMO } from '../demo';
 import { refreshAccessToken } from './fetcher';
 import { currentAccessToken } from './fetcher';
 
 /** Minimal SSE reader on top of fetch (EventSource cannot send an Authorization header). */
-export async function apiFetchStream(url: string, signal: AbortSignal, onData: (data: string) => void) {
-  let res = await fetch(url, { headers: bearer(), signal, credentials: 'same-origin' });
+export async function apiFetchStream(
+  url: string,
+  signal: AbortSignal,
+  onData: (data: string) => void,
+) {
+  // Demo mode has no server to push anything: just stay open until the caller gives up.
+  if (DEMO) {
+    await new Promise<void>((resolve) =>
+      signal.addEventListener('abort', () => resolve()),
+    );
+    return;
+  }
+  let res = await fetch(url, {
+    headers: bearer(),
+    signal,
+    credentials: 'same-origin',
+  });
   if (res.status === 401 && (await refreshAccessToken())) {
-    res = await fetch(url, { headers: bearer(), signal, credentials: 'same-origin' });
+    res = await fetch(url, {
+      headers: bearer(),
+      signal,
+      credentials: 'same-origin',
+    });
   }
   if (!res.ok || !res.body) throw new Error(`stream failed: ${res.status}`);
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -30,5 +50,7 @@ export async function apiFetchStream(url: string, signal: AbortSignal, onData: (
 
 function bearer(): HeadersInit {
   const t = currentAccessToken();
-  return t ? { Authorization: `Bearer ${t}`, Accept: 'text/event-stream' } : { Accept: 'text/event-stream' };
+  return t
+    ? { Authorization: `Bearer ${t}`, Accept: 'text/event-stream' }
+    : { Accept: 'text/event-stream' };
 }

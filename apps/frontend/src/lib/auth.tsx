@@ -17,7 +17,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const path = usePathname();
   const search = useSearchParams().toString();
-  const [status, setStatus] = useState<Status>(hasAccessToken() ? 'authed' : 'loading');
+  const [status, setStatus] = useState<Status>(
+    hasAccessToken() ? 'authed' : 'loading',
+  );
 
   useEffect(() => {
     if (status !== 'loading') return;

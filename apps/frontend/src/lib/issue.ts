@@ -12,7 +12,11 @@ export function issueTitle(card: CardOut, types: CardTypeOut[]): string {
   return typeof v === 'string' && v ? v : '—';
 }
 
-export function issueAssignees(card: CardOut, types: CardTypeOut[], members: Member[]): Member[] {
+export function issueAssignees(
+  card: CardOut,
+  types: CardTypeOut[],
+  members: Member[],
+): Member[] {
   const f = issueType(card, types)?.fields.find((x) => x.is_assignee);
   if (!f) return [];
   return asStrings(card.data[f.slug])

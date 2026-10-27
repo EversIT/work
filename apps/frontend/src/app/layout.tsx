@@ -1,24 +1,53 @@
+import type { Metadata } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
+import { connection } from 'next/server';
 import { getLocale } from 'next-intl/server';
 import './global.css';
+import { BrandingProvider } from '../components/brand';
+import { headers } from 'next/headers';
+import { DEFAULT_BRANDING, getBranding } from '../lib/branding';
+import { accentVars } from '../lib/theme';
 import { Providers } from './providers';
 
-export const metadata = {
-  title: 'work',
-  description: 'Open-source work management',
-};
+/** Title, description and favicon are the administrator's (Admin > Appearance). */
+export async function generateMetadata(): Promise<Metadata> {
+  const b = await getBranding();
+  return {
+    title: b.title,
+    description: b.description,
+    icons: {
+      icon: b.has_favicon
+        ? `/api/v1/branding/favicon?v=${b.version}`
+        : '/icon.svg',
+    },
+  };
+}
 
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Pages are rendered per request: the CSP nonce differs every time, so nothing may be prerendered.
+  await connection();
   const locale = await getLocale();
+  const branding = await getBranding();
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html
+      lang={locale}
+      suppressHydrationWarning
+      style={
+        branding.accent.toLowerCase() === DEFAULT_BRANDING.accent.toLowerCase()
+          ? undefined
+          : (accentVars(branding.accent) ?? undefined)
+      }
+    >
       <body>
         <NextIntlClientProvider locale={locale}>
-          <Providers>{children}</Providers>
+          <BrandingProvider branding={branding}>
+            <Providers nonce={nonce}>{children}</Providers>
+          </BrandingProvider>
         </NextIntlClientProvider>
       </body>
     </html>

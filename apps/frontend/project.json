@@ -38,7 +38,7 @@
       "dependsOn": ["build"],
       "options": {
         "engine": "docker",
-        "file": "{workspaceRoot}/next.Dockerfile",
+        "file": "{workspaceRoot}/packages/docker/next.Dockerfile",
         "build-args": ["APP_NAME=frontend"],
         "metadata": {
           "images": ["work-frontend"],
@@ -49,7 +49,7 @@
     },
     "container": {
       "options": {
-        "file": "{workspaceRoot}/next.Dockerfile",
+        "file": "{workspaceRoot}/packages/docker/next.Dockerfile",
         "cache-from": ["type=registry,ref=${EVERSIT_WORK_FRONTEND}:buildcache"],
         "cache-to": [
           "type=registry,ref=${EVERSIT_WORK_FRONTEND}:buildcache,mode=max"

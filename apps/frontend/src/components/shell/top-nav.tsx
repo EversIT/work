@@ -1,6 +1,14 @@
 'use client';
 
-import { Button, Dropdown, Tooltip, buttonVariants, toast } from '@heroui/react';
+import {
+  Badge,
+  Button,
+  Dropdown,
+  Tooltip,
+  buttonVariants,
+  toast,
+} from '@heroui/react';
+import { routes } from '../../lib/routes';
 import { useQueryClient } from '@tanstack/react-query';
 import { Bell, ChevronDown, Menu, Plus, Settings } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -14,37 +22,126 @@ import { fullName } from '../../lib/format';
 import { useCurrentUser } from '../../lib/hooks';
 import { useCreateIssue } from './create-issue-context';
 import { SearchBox } from './search-box';
+import { Brand, useBranding } from '../brand';
 import { UserAvatar } from './user-avatar';
+import { useCreateProject } from './create-project-context';
 import { useOptionalWorkspaceCtx } from './workspace-context';
+import { useAllWorkspaces } from '../../lib/hooks';
+import { readRecentProjects } from '../../lib/recent';
 
-export function TopNav({ onMenu }: { onMenu: () => void }) {
+type ListLink = { slug: string; name: string; spaceName: string };
+
+/** Recently opened projects of this workspace first, then the rest, at most six. */
+function recent(ctx: { workspaceId: string; lists: ListLink[] }): ListLink[] {
+  const seen = readRecentProjects(ctx.workspaceId);
+  const byRecency = seen
+    .map((slug) => ctx.lists.find((l) => l.slug === slug))
+    .filter((l): l is ListLink => !!l);
+  return [
+    ...byRecency,
+    ...ctx.lists.filter((l) => !seen.includes(l.slug)),
+  ].slice(0, 6);
+}
+
+export function TopNav({
+  onMenu,
+  showMenu,
+}: {
+  onMenu: () => void;
+  showMenu: boolean;
+}) {
   const t = useTranslations('nav');
   const router = useRouter();
   const qc = useQueryClient();
+  const branding = useBranding();
   const me = useCurrentUser();
   const ctx = useOptionalWorkspaceCtx();
   const logout = useLogout();
   const create = useCreateIssue();
-  const unread = body(useListNotifications({ is_read: false, limit: 50 }, { query: { refetchInterval: 30_000 } }).data) ?? [];
+  const createProject = useCreateProject();
+  const { workspaces } = useAllWorkspaces();
+  const unread =
+    body(
+      useListNotifications(
+        { is_read: false, limit: 50 },
+        { query: { refetchInterval: 30_000 } },
+      ).data,
+    ) ?? [];
 
   useServerEvents((e) => {
     qc.invalidateQueries({ queryKey: [`/api/v1/notifications`] });
     toast(e.message, { timeout: 6000 });
   });
 
-  const home = ctx ? `/workspaces/${ctx.workspaceId}` : '/';
-  const link = 'inline-flex h-8 items-center gap-1 rounded-[3px] px-2.5 text-sm font-medium text-[#44546F] hover:bg-[#091E420F]';
+  const wsKey = ctx?.workspace?.key_prefix;
+  const home = wsKey ? routes.workspace(wsKey) : '/';
+  const link = `${buttonVariants({ variant: 'ghost', size: 'sm' })} inline-flex flex-row items-center gap-1`;
+  const iconLink = buttonVariants({
+    variant: 'ghost',
+    size: 'sm',
+    isIconOnly: true,
+  });
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-1 border-b border-[#DCDFE4] bg-white px-3" data-testid="top-nav">
-      <Button isIconOnly variant="ghost" size="sm" className="md:hidden" aria-label={t('menu')} onPress={onMenu}>
-        <Menu size={18} />
-      </Button>
-      <Link href="/" className="mr-2 flex items-center gap-2 px-1" aria-label="work">
-        <span className="flex size-7 items-center justify-center rounded-[4px] bg-gradient-to-br from-[#0C66E4] to-[#1D7AFC] text-sm font-bold text-white">w</span>
-        <span className="hidden text-base font-semibold text-[#172B4D] sm:inline">work</span>
+    <header
+      className="flex h-14 shrink-0 items-center gap-1 border-b border-border bg-surface px-3"
+      data-testid="top-nav"
+    >
+      {showMenu && (
+        <Button
+          isIconOnly
+          variant="ghost"
+          size="sm"
+          className="md:hidden"
+          aria-label={t('menu')}
+          onPress={onMenu}
+        >
+          <Menu size={18} />
+        </Button>
+      )}
+      <Link
+        href="/"
+        className="mr-2 flex items-center gap-2 px-1 text-foreground"
+        aria-label={branding.title}
+      >
+        <Brand hideNameOnMobile />
       </Link>
-      <nav className="hidden items-center gap-0.5 md:flex" aria-label={t('main')}>
+      {ctx && workspaces.length > 1 && (
+        <Dropdown>
+          <Dropdown.Trigger
+            className={`${link} max-w-40`}
+            data-testid="workspace-switcher"
+            aria-label={t('chooseWorkspace')}
+          >
+            <span className="truncate">
+              {ctx.workspace?.name ?? t('chooseWorkspace')}
+            </span>
+            <ChevronDown size={14} />
+          </Dropdown.Trigger>
+          <Dropdown.Popover>
+            <Dropdown.Menu
+              aria-label={t('workspaces')}
+              onAction={(key) => {
+                const w = workspaces.find((x) => x.id === String(key));
+                if (w) router.push(routes.workspace(w.key_prefix));
+              }}
+            >
+              {workspaces.map((w) => (
+                <Dropdown.Item key={w.id} id={w.id} textValue={w.name}>
+                  <span className="flex flex-col">
+                    <span>{w.name}</span>
+                    <span className="text-xs text-muted">{w.project.name}</span>
+                  </span>
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown.Popover>
+        </Dropdown>
+      )}
+      <nav
+        className="hidden items-center gap-0.5 md:flex"
+        aria-label={t('main')}
+      >
         <Link href={home} className={link}>
           {t('yourWork')}
         </Link>
@@ -55,28 +152,49 @@ export function TopNav({ onMenu }: { onMenu: () => void }) {
               <ChevronDown size={14} />
             </Dropdown.Trigger>
             <Dropdown.Popover>
-              <Dropdown.Menu aria-label={t('projects')} onAction={(key) => router.push(String(key))}>
-                {ctx.lists.length === 0 ? (
-                  <Dropdown.Item id={home} textValue={t('noProjects')}>
-                    {t('noProjects')}
-                  </Dropdown.Item>
-                ) : (
-                  ctx.lists.map((l) => (
-                    <Dropdown.Item key={l.id} id={`/workspaces/${ctx.workspaceId}/lists/${l.slug}`} textValue={l.name}>
+              <Dropdown.Menu
+                aria-label={t('projects')}
+                onAction={(key) => {
+                  const k = String(key);
+                  if (k === 'create') createProject.open();
+                  else router.push(k === 'all' ? home : k.replace(/^go:/, ''));
+                }}
+              >
+                <Dropdown.Section aria-label={t('recent')}>
+                  {recent(ctx).map((l) => (
+                    <Dropdown.Item
+                      key={l.slug}
+                      id={`go:${routes.project(wsKey ?? '', l.slug)}`}
+                      textValue={l.name}
+                    >
                       <span className="flex flex-col">
                         <span>{l.name}</span>
-                        <span className="text-xs text-muted">{l.spaceName}</span>
+                        <span className="text-xs text-muted">
+                          {l.spaceName}
+                        </span>
                       </span>
                     </Dropdown.Item>
-                  ))
-                )}
+                  ))}
+                </Dropdown.Section>
+                <Dropdown.Item id="all" textValue={t('viewAllProjects')}>
+                  {t('viewAllProjects')}
+                </Dropdown.Item>
+                <Dropdown.Item id="create" textValue={t('createProject')}>
+                  {t('createProject')}
+                </Dropdown.Item>
               </Dropdown.Menu>
             </Dropdown.Popover>
           </Dropdown>
         )}
       </nav>
       {ctx && (
-        <Button size="sm" className="ml-2 rounded-[3px]" onPress={() => create.open()} data-testid="create-button" isDisabled={ctx.lists.length === 0}>
+        <Button
+          size="sm"
+          className="ml-2"
+          onPress={() => create.open()}
+          data-testid="create-button"
+          isDisabled={ctx.lists.length === 0}
+        >
           <Plus size={14} />
           {t('create')}
         </Button>
@@ -85,21 +203,33 @@ export function TopNav({ onMenu }: { onMenu: () => void }) {
       {ctx && <SearchBox />}
       <Tooltip>
         <Tooltip.Trigger>
-          <Link href="/notifications" aria-label={t('notifications')} className="relative ml-1 inline-flex size-8 items-center justify-center rounded-full text-[#44546F] hover:bg-[#091E420F]" data-testid="bell">
-            <Bell size={18} />
+          <Badge.Anchor>
+            <Link
+              href="/notifications"
+              aria-label={t('notifications')}
+              className={iconLink}
+              data-testid="bell"
+            >
+              <Bell size={18} />
+            </Link>
             {unread.length > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-[#C9372C] text-[10px] font-bold text-white" data-testid="unread-count">
+              <Badge color="danger" size="sm" data-testid="unread-count">
                 {unread.length > 9 ? '9+' : unread.length}
-              </span>
+              </Badge>
             )}
-          </Link>
+          </Badge.Anchor>
         </Tooltip.Trigger>
         <Tooltip.Content>{t('notifications')}</Tooltip.Content>
       </Tooltip>
       {ctx && (
         <Tooltip>
           <Tooltip.Trigger>
-            <Link href={`/workspaces/${ctx.workspaceId}/settings`} aria-label={t('workspaceSettings')} className="inline-flex size-8 items-center justify-center rounded-full text-[#44546F] hover:bg-[#091E420F]" data-testid="workspace-settings-link">
+            <Link
+              href={routes.workspaceSettings(ctx.workspace?.key_prefix ?? '')}
+              aria-label={t('workspaceSettings')}
+              className={iconLink}
+              data-testid="workspace-settings-link"
+            >
               <Settings size={18} />
             </Link>
           </Tooltip.Trigger>
@@ -108,7 +238,15 @@ export function TopNav({ onMenu }: { onMenu: () => void }) {
       )}
       {me && (
         <Dropdown>
-          <Dropdown.Trigger className={buttonVariants({ variant: 'ghost', isIconOnly: true, size: 'sm' })} aria-label={t('account')} data-testid="user-menu">
+          <Dropdown.Trigger
+            className={buttonVariants({
+              variant: 'ghost',
+              isIconOnly: true,
+              size: 'sm',
+            })}
+            aria-label={t('account')}
+            data-testid="user-menu"
+          >
             <UserAvatar user={me} />
           </Dropdown.Trigger>
           <Dropdown.Popover>
@@ -116,6 +254,7 @@ export function TopNav({ onMenu }: { onMenu: () => void }) {
               aria-label={t('account')}
               onAction={async (key) => {
                 if (key === 'settings') router.push('/settings');
+                if (key === 'admin') router.push('/admin');
                 if (key === 'signout') {
                   await logout.mutateAsync().catch(() => undefined);
                   qc.clear();
@@ -129,7 +268,16 @@ export function TopNav({ onMenu }: { onMenu: () => void }) {
               <Dropdown.Item id="settings" textValue={t('settings')}>
                 {t('settings')}
               </Dropdown.Item>
-              <Dropdown.Item id="signout" textValue={t('signOut')} variant="danger">
+              {me.is_instance_admin ? (
+                <Dropdown.Item id="admin" textValue={t('admin')}>
+                  {t('admin')}
+                </Dropdown.Item>
+              ) : null}
+              <Dropdown.Item
+                id="signout"
+                textValue={t('signOut')}
+                variant="danger"
+              >
                 {t('signOut')}
               </Dropdown.Item>
             </Dropdown.Menu>

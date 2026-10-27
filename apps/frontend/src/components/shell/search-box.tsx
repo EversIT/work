@@ -1,10 +1,14 @@
 'use client';
 
-import { Search } from 'lucide-react';
+import { routes } from '../../lib/routes';
+import { ListBox, SearchField } from '@heroui/react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { getCardByKey, searchWorkspaceCards } from '../../api/generated/cards/cards';
+import {
+  getCardByKey,
+  searchWorkspaceCards,
+} from '../../api/generated/cards/cards';
 import type { CardOut } from '../../api/generated/model';
 import { body } from '../../lib/api';
 import { IssueTypeIcon } from '../jira/issue-ui';
@@ -18,22 +22,26 @@ export function SearchBox() {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<CardOut[]>([]);
   const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLElement>(null);
 
+  // Short queries show nothing; the stored results only matter once a search was sent.
+  const searchable = q.trim().length >= 2;
+  const shown = searchable ? results : [];
   useEffect(() => {
-    if (q.trim().length < 2) {
-      setResults([]);
-      return;
-    }
+    if (!searchable) return;
     const handle = setTimeout(async () => {
       try {
-        setResults(body(await searchWorkspaceCards(ctx.workspaceId, { keyword: q.trim() })) ?? []);
+        setResults(
+          body(
+            await searchWorkspaceCards(ctx.workspaceId, { keyword: q.trim() }),
+          ) ?? [],
+        );
       } catch {
         setResults([]);
       }
     }, 200);
     return () => clearTimeout(handle);
-  }, [q, ctx.workspaceId]);
+  }, [q, searchable, ctx.workspaceId]);
 
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -43,10 +51,10 @@ export function SearchBox() {
     return () => document.removeEventListener('mousedown', close);
   }, []);
 
-  const go = (id: string) => {
+  const go = (issueKey: string) => {
     setOpen(false);
     setQ('');
-    router.push(`/workspaces/${ctx.workspaceId}/cards/${id}`);
+    router.push(routes.browse(issueKey));
   };
   const titleSlug = (c: CardOut) => {
     const type = ctx.cardTypes.find((x) => x.id === c.card_type_id);
@@ -55,19 +63,17 @@ export function SearchBox() {
   };
 
   return (
-    <div ref={box} className="relative w-full max-w-xs" role="search">
-      <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
-      <input
+    <search ref={box} className="relative block w-full max-w-xs">
+      <SearchField
+        fullWidth
         aria-label={t('search')}
-        placeholder={t('search')}
         value={q}
-        maxLength={200}
-        data-testid="top-search"
-        onChange={(e) => {
-          setQ(e.target.value);
+        onChange={(v) => {
+          setQ(v.slice(0, 200));
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
+        onClear={() => setQ('')}
         onKeyDown={async (e) => {
           if (e.key === 'Escape') setOpen(false);
           if (e.key === 'Enter' && q.trim()) {
@@ -75,33 +81,53 @@ export function SearchBox() {
             if (/^[A-Za-z][A-Za-z0-9]+-\d+$/.test(q.trim())) {
               try {
                 const c = body(await getCardByKey(ctx.workspaceId, q.trim()));
-                if (c) return go(c.id);
+                if (c) return go(c.key);
               } catch {
                 /* fall through to the result list */
               }
             }
-            if (results[0]) go(results[0].id);
+            if (shown[0]) go(shown[0].key);
           }
         }}
-        className="h-8 w-full rounded-[3px] border border-[#8590A2] bg-white pl-8 pr-2 text-sm placeholder:text-[#758195] focus:border-[#0C66E4] focus:outline-none focus:ring-1 focus:ring-[#0C66E4]"
-      />
+      >
+        <SearchField.Group>
+          <SearchField.SearchIcon />
+          <SearchField.Input
+            placeholder={t('search')}
+            data-testid="top-search"
+          />
+          <SearchField.ClearButton />
+        </SearchField.Group>
+      </SearchField>
       {open && q.trim().length >= 2 && (
-        <ul className="absolute left-0 right-0 top-9 z-50 max-h-80 overflow-y-auto rounded-[3px] border border-[#DCDFE4] bg-white py-1 shadow-lg" data-testid="top-search-results">
-          {results.length === 0 && <li className="px-3 py-2 text-sm text-muted">{t('noResults')}</li>}
-          {results.map((c) => {
-            const type = ctx.cardTypes.find((x) => x.id === c.card_type_id);
-            return (
-              <li key={c.id}>
-                <button className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-[#F1F2F4]" onClick={() => go(c.id)}>
-                  <IssueTypeIcon icon={type?.icon} color={type?.color} />
-                  <span className="text-xs text-muted">{c.key}</span>
-                  <span className="truncate">{titleSlug(c)}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <div
+          className="absolute left-0 right-0 top-10 z-50 max-h-80 overflow-y-auto rounded-lg border border-border bg-overlay p-1 shadow-overlay"
+          data-testid="top-search-results"
+        >
+          {shown.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-muted">{t('noResults')}</p>
+          ) : (
+            <ListBox
+              aria-label={t('search')}
+              onAction={(key) => {
+                const hit = shown.find((x) => x.id === String(key));
+                if (hit) go(hit.key);
+              }}
+            >
+              {shown.map((c) => {
+                const type = ctx.cardTypes.find((x) => x.id === c.card_type_id);
+                return (
+                  <ListBox.Item key={c.id} id={c.id} textValue={c.key}>
+                    <IssueTypeIcon icon={type?.icon} color={type?.color} />
+                    <span className="text-xs text-muted">{c.key}</span>
+                    <span className="truncate">{titleSlug(c)}</span>
+                  </ListBox.Item>
+                );
+              })}
+            </ListBox>
+          )}
+        </div>
       )}
-    </div>
+    </search>
   );
 }
