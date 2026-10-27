@@ -93,9 +93,10 @@ repository variables `IMAGE_REGISTRY` and `IMAGE_NAMESPACE`. The installation gu
 
 - **Docs:** `apps/docs` is a [VitePress](https://vitepress.dev) site (pages in `apps/docs/src`).
   `npx nx run docs:dev` to write, `npx nx run docs:build` to build into `dist/apps/docs`.
-- **Demo:** `apps/demo` builds the frontend with `NEXT_PUBLIC_DEMO=true`. Every API call is then answered in the browser
-  from made-up data (`apps/frontend/src/demo`): no backend, no database, nothing is stored, and a reload starts over.
-  `npx nx run demo:dev` (port 3100).
+- **Demo:** the frontend with `DEMO_MODE=true` in its environment (read at runtime, the same image as the real app).
+  Every API call is then answered in the browser from made-up data (`apps/frontend/src/demo`): no backend, no database,
+  nothing is stored, and a reload starts over. `DEMO_MODE=true npx nx run frontend:dev`, or
+  `docker run -p 3000:3000 -e DEMO_MODE=true eversit/work-frontend`.
 
 ## License
 

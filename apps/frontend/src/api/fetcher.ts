@@ -9,7 +9,7 @@
  * - On a 401 the request is retried once after a single-flight token refresh.
  */
 
-import { DEMO } from '../demo';
+import { isDemo } from '../demo';
 
 export class ApiError extends Error {
   constructor(
@@ -46,7 +46,7 @@ const AUTH_PATHS = [
 ];
 
 export async function refreshAccessToken(): Promise<boolean> {
-  if (DEMO) {
+  if (isDemo()) {
     accessToken = 'demo';
     return true;
   }
@@ -85,8 +85,8 @@ export async function apiFetch<T>(
   const path = url.split('?')[0];
 
   // Demo mode: answered in the browser from made-up data, nothing leaves the page.
-  if (DEMO) {
-    // Loaded on demand, so a normal build never ships the made-up data.
+  if (isDemo()) {
+    // Loaded on demand, so the real app never loads the made-up data.
     const { demoRequest } = await import('../demo/server');
     const r = demoRequest(url, options);
     // A copy, so later edits to the demo data are seen as changes by the query cache.

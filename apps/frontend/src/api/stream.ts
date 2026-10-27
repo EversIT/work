@@ -1,4 +1,4 @@
-import { DEMO } from '../demo';
+import { isDemo } from '../demo';
 import { refreshAccessToken } from './fetcher';
 import { currentAccessToken } from './fetcher';
 
@@ -9,7 +9,7 @@ export async function apiFetchStream(
   onData: (data: string) => void,
 ) {
   // Demo mode has no server to push anything: just stay open until the caller gives up.
-  if (DEMO) {
+  if (isDemo()) {
     await new Promise<void>((resolve) =>
       signal.addEventListener('abort', () => resolve()),
     );

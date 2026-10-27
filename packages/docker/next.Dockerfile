@@ -13,8 +13,7 @@ WORKDIR /usr/src/app
 
 ARG APP_NAME
 ENV APP_NAME=${APP_NAME}
-# The build output folder under dist/apps. It differs from the app name for the demo, which is
-# the frontend built with NEXT_PUBLIC_DEMO=true into dist/apps/frontend-demo.
+# The build output folder under dist/apps.
 ARG DIST_NAME=${APP_NAME}
 
 COPY --chown=node:node dist/apps/${DIST_NAME}/standalone ./

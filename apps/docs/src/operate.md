@@ -35,25 +35,14 @@ docker compose exec -T db sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB
 The volume name starts with your Compose project name (the folder name by default); check it with
 `docker volume ls`. Test the restore on another machine before you need it.
 
-## Documentation and demo on one address
+## Demo
 
-The documentation and the demo are separate images that need neither a database nor a backend. The docs image can
-show the demo under its own address, so you do not need a subdomain, a second certificate or a second proxy entry:
-
-```sh
-curl -fsSLO https://raw.githubusercontent.com/EversIT/work/main/deploy/docker-compose.docs.yml
-docker compose -f docker-compose.docs.yml up -d
-```
-
-- `http://127.0.0.1:8080/` is the documentation, `http://127.0.0.1:8080/demo` the demo (made-up data, nothing is
-  stored, a reload starts over). The navigation of the documentation links to it.
-- Point your TLS-terminating reverse proxy at the **docs** container only (`reverse_proxy 127.0.0.1:8080`). The docs
-  container passes `/demo` on to the demo container over the internal network.
-- The demo is built to live below `/demo`. If you run it on its own, open `http://localhost:3000/demo`.
-- `DEMO_UPSTREAM` (default `demo:3000`) tells the docs container where the demo is. Without a demo the documentation
-  works as before and `/demo` answers with an error.
+The demo is the normal frontend image started in demo mode. It needs neither a database nor a backend: every API
+call is answered in the browser from made-up data, nothing is stored, and a reload starts over.
 
 ```sh
-docker run -d -p 8080:8080 eversit/work-docs:latest    # only the documentation
-docker run -d -p 3000:3000 eversit/work-demo:latest    # only the demo, at /demo
+docker run -d -p 3000:3000 -e DEMO_MODE=true eversit/work-frontend:latest
 ```
+
+`DEMO_MODE` is read when the server starts, so the same image serves the real app and the demo. To link the
+documentation to it, set the repository variable `DOCS_DEMO_URL` to the demo's address before building the docs.

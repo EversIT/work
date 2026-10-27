@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 
-// The demo is the frontend built with NEXT_PUBLIC_DEMO=true: no backend, made-up data, nothing
-// stored. Run it against a demo instance (`npx nx run demo:dev`, or the work-demo image):
-//   E2E_DEMO_URL=http://localhost:3100 npx playwright test --config=apps/frontend-e2e/playwright.config.ts demo
+// The demo is the frontend started with DEMO_MODE=true: no backend, made-up data, nothing
+// stored. Run it against a demo instance (`DEMO_MODE=true npx nx run frontend:dev`, or the frontend image):
+//   E2E_DEMO_URL=http://localhost:3000 npx playwright test --config=apps/frontend-e2e/playwright.config.ts demo
 const DEMO = process.env.E2E_DEMO_URL;
 test.skip(!DEMO, 'set E2E_DEMO_URL to a running demo');
 test.use({ baseURL: DEMO });

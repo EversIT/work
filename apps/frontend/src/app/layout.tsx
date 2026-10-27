@@ -7,6 +7,7 @@ import { BrandingProvider } from '../components/brand';
 import { headers } from 'next/headers';
 import { DEFAULT_BRANDING, getBranding } from '../lib/branding';
 import { accentVars } from '../lib/theme';
+import { DemoFlag } from '../demo';
 import { Providers } from './providers';
 
 /** Title, description and favicon are the administrator's (Admin > Appearance). */
@@ -44,6 +45,7 @@ export default async function RootLayout({
       }
     >
       <body>
+        <DemoFlag nonce={nonce} />
         <NextIntlClientProvider locale={locale}>
           <BrandingProvider branding={branding}>
             <Providers nonce={nonce}>{children}</Providers>
