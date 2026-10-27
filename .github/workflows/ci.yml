@@ -107,7 +107,7 @@ jobs:
           npm run check-lock-files &
           pids+=($!)
 
-          npx nx affected --targets=lint,test,build --parallel=3 &
+          npx nx affected --targets=lint,test,build &
           pids+=($!)
 
           for pid in "${pids[@]}"; do
