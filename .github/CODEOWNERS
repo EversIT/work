@@ -1,0 +1,20 @@
+# Whoever owns a path is requested as reviewer automatically when a pull request changes it. With
+# "Require review from Code Owners" switched on in the branch protection of main, their approval is
+# also required. The last matching line wins, and an owner needs write access to the repository.
+#
+# To add people, put them after the path (a user: @name, a team: @EversIT/team-name). Examples:
+#   /apps/backend/src/security/   @EversIT/security
+#   /apps/frontend/               @EversIT/frontend
+#   /apps/docs/                   @EversIT/docs
+
+# Everything, until more specific owners are named below.
+*                       @Optischa
+
+# Changes that decide who may see what, how the database changes, and how releases are built. Listed
+# separately so they stay with a named reviewer when the default above is widened to a team.
+/apps/backend/src/security/   @Optischa
+/apps/backend/src/identity/   @Optischa
+/apps/backend/migrations/     @Optischa
+/.github/                     @Optischa
+/packages/docker/             @Optischa
+/deploy/                      @Optischa
