@@ -78,7 +78,7 @@ test('sign-up needs the confirmation link when e-mail verification is on', async
   await expect(page.getByText('Create your first workspace')).toBeVisible();
 
   // The link works once.
-  const again = await await page.context().newPage();
+  const again = await page.context().newPage();
   await again.goto(link);
   await expect(again.getByTestId('verify-error')).toBeVisible();
 });
