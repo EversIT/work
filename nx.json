@@ -99,7 +99,7 @@
     },
     "changelog": {
       "workspaceChangelog": {
-        "file": "CHANGELOG.md",
+        "file": false,
         "createRelease": "github"
       },
       "automaticFromRef": true
