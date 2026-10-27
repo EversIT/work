@@ -11,27 +11,30 @@ export function SlackCallback() {
   const t = useTranslations('settings');
   const params = useSearchParams();
   const router = useRouter();
-  const [error, setError] = useState(false);
+  const [failed, setFailed] = useState(false);
   const done = useRef(false);
 
+  const code = params.get('code');
+  const state = params.get('state');
+  // A missing code or state is an error by itself; no effect needs to say so.
+  const error = failed || !code || !state;
+
   useEffect(() => {
-    if (done.current) return;
+    if (done.current || !code || !state) return;
     done.current = true;
-    const code = params.get('code');
-    const state = params.get('state');
-    if (!code || !state) {
-      setError(true);
-      return;
-    }
     slackCallback({ code, state })
       .then(() => router.replace('/settings'))
-      .catch(() => setError(true));
-  }, [params, router]);
+      .catch(() => setFailed(true));
+  }, [code, state, router]);
 
   return (
     <div className="flex justify-center p-12">
       {error ? (
-        <Alert status="danger"><Alert.Content><Alert.Description>{t('slackFailed')}</Alert.Description></Alert.Content></Alert>
+        <Alert status="danger">
+          <Alert.Content>
+            <Alert.Description>{t('slackFailed')}</Alert.Description>
+          </Alert.Content>
+        </Alert>
       ) : (
         <Spinner aria-label={t('connectingSlack')} />
       )}
