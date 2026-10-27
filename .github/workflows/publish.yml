@@ -157,12 +157,6 @@ jobs:
             echo "EVERSIT_WORK_FRONTEND=${base}/work-frontend"
           } >> "$GITHUB_ENV"
 
-      # The tag rules in the container targets read $RELEASE_TAG. Without a tag (a manual run on a
-      # branch) only `latest` is pushed.
-      - name: Resolve the release tag
-        run: |
-          if [ "$GITHUB_REF_TYPE" = "tag" ]; then echo "RELEASE_TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"; fi
-
       - name: Set up QEMU (multi-arch emulation)
         uses: docker/setup-qemu-action@v3
 

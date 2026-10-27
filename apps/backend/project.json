@@ -81,7 +81,13 @@
           "images": ["${EVERSIT_WORK_BACKEND}"],
           "tags": [
             "latest",
-            "type=semver,pattern={{version}},value=${RELEASE_TAG}"
+            "type=schedule",
+            "type=ref,event=tag",
+            "type=ref,event=pr",
+            "type=semver,pattern={{version}}",
+            "type=semver,pattern={{major}}",
+            "type=semver,pattern={{major}}.{{minor}}",
+            "type=sha,prefix=sha-"
           ]
         }
       }
