@@ -48,40 +48,6 @@
       ],
       "outputs": ["{workspaceRoot}/dist/apps/frontend-demo"],
       "cache": true
-    },
-    "container:local": {
-      "executor": "@nx-tools/nx-container:build",
-      "dependsOn": ["build"],
-      "options": {
-        "engine": "docker",
-        "file": "{workspaceRoot}/packages/docker/next.Dockerfile",
-        "build-args": ["APP_NAME=frontend", "DIST_NAME=frontend-demo"],
-        "metadata": {
-          "images": ["work-demo"],
-          "load": "true",
-          "tags": ["latest"]
-        }
-      }
-    },
-    "container": {
-      "executor": "@nx-tools/nx-container:build",
-      "dependsOn": ["build"],
-      "options": {
-        "engine": "docker",
-        "file": "{workspaceRoot}/packages/docker/next.Dockerfile",
-        "build-args": ["APP_NAME=frontend", "DIST_NAME=frontend-demo"],
-        "cache-from": ["type=registry,ref=${EVERSIT_WORK_DEMO}:buildcache"],
-        "cache-to": [
-          "type=registry,ref=${EVERSIT_WORK_DEMO}:buildcache,mode=max"
-        ],
-        "metadata": {
-          "images": ["${EVERSIT_WORK_DEMO}"],
-          "tags": [
-            "latest",
-            "type=semver,pattern={{version}},value=${RELEASE_TAG}"
-          ]
-        }
-      }
     }
   }
 }

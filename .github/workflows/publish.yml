@@ -1,7 +1,7 @@
 name: publish
 
-# Builds the container images (backend, frontend, docs, demo) and pushes them to Docker Hub
-# (docker.io/eversit/work-backend, work-frontend, work-docs and work-demo by default). No npm package
+# Builds the container images (backend, frontend) and pushes them to Docker Hub
+# (docker.io/eversit/work-backend and work-frontend by default). No npm package
 # is published, this workspace only ships containers.
 #
 # Triggers: a manual dispatch, a published GitHub release, and `workflow_call` from the release
@@ -162,8 +162,6 @@ jobs:
           {
             echo "EVERSIT_WORK_BACKEND=${base}/work-backend"
             echo "EVERSIT_WORK_FRONTEND=${base}/work-frontend"
-            echo "EVERSIT_WORK_DOCS=${base}/work-docs"
-            echo "EVERSIT_WORK_DEMO=${base}/work-demo"
           } >> "$GITHUB_ENV"
 
       # The tag rules in the container targets read $RELEASE_TAG, not the run's git ref: when called

@@ -78,26 +78,23 @@ Managing tokens, passwords and the account itself needs a browser session.
 
 ## Publishing images and releases
 
-Images are published to Docker Hub as `eversit/work-backend`, `eversit/work-frontend`, `eversit/work-docs` (the
-documentation site) and `eversit/work-demo` (the demo, see below). Run the **release**
+Images are published to Docker Hub as `eversit/work-backend` and `eversit/work-frontend`. Run the **release**
 workflow (Actions, "Run workflow" on `main`): `nx release` derives the next version from the conventional
 commits, updates `CHANGELOG.md`, tags `vX.Y.Z`, creates the GitHub release, and the **publish** workflow pushes
-the images as `X.Y.Z`, `X.Y`, `X` and `latest`. The first run needs "first release" ticked.
+the images as `X.Y.Z` and `latest`. The first run needs "first release" ticked.
 
-One-time setup: create the four public repositories on Docker Hub, and add the repository secrets
+One-time setup: create the two public repositories on Docker Hub, and add the repository secrets
 `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (an access token with Read & Write). To publish somewhere else, set the
 repository variables `IMAGE_REGISTRY` and `IMAGE_NAMESPACE`. The installation guide is in
-[apps/docs](apps/docs/src) (VitePress) and can be published to GitHub Pages by the **docs** workflow or run as its own
-image, `eversit/work-docs`.
+[apps/docs](apps/docs/src) (VitePress) and is published to GitHub Pages by the **docs** workflow.
 
 ## Documentation site and demo
 
 - **Docs:** `apps/docs` is a [VitePress](https://vitepress.dev) site (pages in `apps/docs/src`).
-  `npx nx run docs:dev` to write, `npx nx run docs:build` to build into `dist/apps/docs`, and the `work-docs` image
-  serves it with nginx.
+  `npx nx run docs:dev` to write, `npx nx run docs:build` to build into `dist/apps/docs`.
 - **Demo:** `apps/demo` builds the frontend with `NEXT_PUBLIC_DEMO=true`. Every API call is then answered in the browser
   from made-up data (`apps/frontend/src/demo`): no backend, no database, nothing is stored, and a reload starts over.
-  `npx nx run demo:dev` (port 3100) or `docker run -p 3000:3000 eversit/work-demo`.
+  `npx nx run demo:dev` (port 3100).
 
 ## License
 
