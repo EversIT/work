@@ -33,7 +33,7 @@ privately as described in [SECURITY.md](SECURITY.md), not as a public issue.
    npx nx run frontend:test
    npx nx run frontend:build
    ```
-   After an API change also run `npx nx run backend:openapi` and commit `apps/backend/openapi.json`.
+   After an API change also run `npx nx run frontend:api` (regenerates `apps/backend/openapi.json` and the client) and commit `apps/backend/openapi.json`.
 5. Open the pull request. The **title** must follow `type(scope): subject` (for example
    `fix(backend): reject expired invites`); see `scripts/commit-lint.js` for the types and scopes. Fill in the
    template, and say how you tested it.

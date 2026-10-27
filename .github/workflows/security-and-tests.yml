@@ -54,6 +54,10 @@ jobs:
       - run: npx nx run backend:lint
       # Includes the #[ignore]d end-to-end tests that need the Postgres service above.
       - run: npx nx run backend:test --args=--include-ignored
+      # The committed spec must match the code, so API changes are always reviewed. (The frontend
+      # builds its client from this file and needs no Rust.)
+      - run: npx nx run backend:openapi
+      - run: git diff --exit-code apps/backend/openapi.json
       # A prebuilt binary: `cargo install` compiled cargo-audit from source on every run.
       - uses: taiki-e/install-action@v2
         with:
@@ -65,17 +69,9 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with: { node-version: 24, cache: npm }
-      - run: rustup show
-      # `.cargo/config.toml` puts the build output in dist/target; the cache must look there, or every
-      # run compiles all ~400 crates from scratch.
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: '. -> dist/target'
       - run: npm ci --ignore-scripts
       - run: npm audit --omit=dev --audit-level=high
       - run: npx nx run frontend:build
-      # The committed spec must match the code, so API changes are always reviewed.
-      - run: git diff --exit-code apps/backend/openapi.json
   e2e:
     # Production images through the compose file, then the browser tests against http://localhost:3000.
     runs-on: ubuntu-latest

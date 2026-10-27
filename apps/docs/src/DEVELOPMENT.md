@@ -17,7 +17,7 @@ A quick way to get PostgreSQL: `docker run -d -p 5432:5432 -e POSTGRES_HOST_AUTH
 
 Everything goes through Nx: `npx nx run <project>:<target>`. Useful targets: `backend:serve`, `backend:test`,
 `backend:lint`, `backend:openapi`, `frontend:dev`, `frontend:build`, `frontend:lint`, `frontend:test`,
-`frontend:orval`, `frontend-e2e:e2e`.
+`frontend:orval`, `frontend:api`, `frontend-e2e:e2e`.
 
 ## Tests
 
@@ -62,7 +62,7 @@ fresh database: the first account becomes the administrator, which `admin.spec.t
    resource's project, use an explicit request struct, bound SQL parameters.
 2. Annotate it with `#[utoipa::path(...)]` (give it an `operation_id`) and register it with `routes!(...)`.
 3. Register the router in `app.rs` if it is a new file.
-4. `npx nx run backend:openapi` then `npx nx run frontend:orval`; commit `apps/backend/openapi.json`.
+4. `npx nx run frontend:api` (it runs `backend:openapi`, then `frontend:orval`); commit `apps/backend/openapi.json`. `orval` alone reads the committed document and needs no Rust, which is what CI and the image builds use.
 5. Add an end-to-end test in `apps/backend/src/tests/` that covers who must **not** be allowed, not only the happy path.
 
 **Add a migration**: a new `apps/backend/migrations/NNNN_name.sql` (never edit an applied one). Migrations

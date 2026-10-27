@@ -10,12 +10,6 @@
       "options": {
         "cwd": "{workspaceRoot}"
       },
-      "dependsOn": [
-        {
-          "target": "openapi",
-          "projects": "backend"
-        }
-      ],
       "inputs": [
         "{workspaceRoot}/apps/backend/openapi.json",
         "{projectRoot}/orval.config.ts",
@@ -105,6 +99,13 @@
           "projects": "frontend"
         }
       ]
+    },
+    "api": {
+      "command": "nx run backend:openapi && nx run frontend:orval",
+      "options": {
+        "cwd": "{workspaceRoot}"
+      },
+      "// about": "After an API change: regenerates apps/backend/openapi.json from the Rust code (needs cargo), then the typed client from it. `orval` alone reads the committed document and needs no Rust."
     }
   }
 }
