@@ -166,17 +166,16 @@ jobs:
             echo "EVERSIT_WORK_DEMO=${base}/work-demo"
           } >> "$GITHUB_ENV"
 
-      # When called from the release workflow the run itself belongs to a branch, but the images
-      # are for a tag: point the tag rules (`type=semver`, `type=ref,event=tag`) at that tag.
-      - name: Use the release tag as the image ref
-        if: inputs.ref != ''
+      # The tag rules in the container targets read $RELEASE_TAG, not the run's git ref: when called
+      # from the release workflow the run belongs to a branch, and GITHUB_* variables cannot be
+      # overridden through $GITHUB_ENV. Without a tag (plain manual run) only `latest` is pushed.
+      - name: Resolve the release tag
+        env:
+          INPUT_REF: ${{ inputs.ref }}
         run: |
-          {
-            echo "GITHUB_REF=refs/tags/${{ inputs.ref }}"
-            echo "GITHUB_REF_NAME=${{ inputs.ref }}"
-            echo "GITHUB_REF_TYPE=tag"
-            echo "GITHUB_SHA=$(git rev-parse HEAD)"
-          } >> "$GITHUB_ENV"
+          tag="$INPUT_REF"
+          if [ -z "$tag" ] && [ "$GITHUB_REF_TYPE" = "tag" ]; then tag="$GITHUB_REF_NAME"; fi
+          if [ -n "$tag" ]; then echo "RELEASE_TAG=${tag}" >> "$GITHUB_ENV"; fi
 
       - name: Set up QEMU (multi-arch emulation)
         uses: docker/setup-qemu-action@v3

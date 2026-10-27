@@ -57,14 +57,7 @@
           "images": ["${EVERSIT_WORK_DOCS}"],
           "tags": [
             "latest",
-            "type=schedule",
-            "type=ref,event=branch",
-            "type=ref,event=tag",
-            "type=ref,event=pr",
-            "type=semver,pattern={{version}}",
-            "type=semver,pattern={{major}}",
-            "type=semver,pattern={{major}}.{{minor}}",
-            "type=sha,prefix=sha-"
+            "type=semver,pattern={{version}},value=${RELEASE_TAG}"
           ]
         }
       }
