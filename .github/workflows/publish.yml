@@ -4,9 +4,9 @@ name: publish
 # (docker.io/eversit/work-backend and work-frontend by default). No npm package
 # is published, this workspace only ships containers.
 #
-# Triggers: a manual dispatch, a published GitHub release, and `workflow_call` from the release
-# workflow (a release created with the built-in GITHUB_TOKEN does not fire the `release` event, so
-# release.yml calls this workflow itself and passes the new tag as `ref`).
+# Triggers: a manual dispatch and a published GitHub release. The release is created from a
+# maintainer's machine with `nx release` and their own token (a release created with the built-in
+# GITHUB_TOKEN would not fire the `release` event).
 #
 # A release (or a manual run with `build_all: true`) rebuilds every image so the tag gets a
 # complete, self-consistent set; a plain manual run only rebuilds what `nx affected` marks as
@@ -20,12 +20,6 @@ on:
         default: false
   release:
     types: [published]
-  workflow_call:
-    inputs:
-      ref:
-        description: 'Git tag to build and publish (e.g. v1.2.3)'
-        type: string
-        required: true
 
 run-name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Image Build' || format('Release Image Build for {0}', github.ref_name) }}
 
@@ -61,7 +55,6 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
-          ref: ${{ inputs.ref || github.ref }}
 
       # Rust apps' container images are multi-arch (see packages/docker/rust.Dockerfile),
       # but that Dockerfile only copies an already-built binary - it never
@@ -111,7 +104,7 @@ jobs:
       - name: Decide build scope
         id: scope
         run: |
-          if [ "${{ github.event_name }}" = "release" ] || [ "${{ inputs.build_all }}" = "true" ] || [ -n "${{ inputs.ref }}" ]; then
+          if [ "${{ github.event_name }}" = "release" ] || [ "${{ inputs.build_all }}" = "true" ]; then
             echo "all=true" >> "$GITHUB_OUTPUT"
           else
             echo "all=false" >> "$GITHUB_OUTPUT"
@@ -164,16 +157,11 @@ jobs:
             echo "EVERSIT_WORK_FRONTEND=${base}/work-frontend"
           } >> "$GITHUB_ENV"
 
-      # The tag rules in the container targets read $RELEASE_TAG, not the run's git ref: when called
-      # from the release workflow the run belongs to a branch, and GITHUB_* variables cannot be
-      # overridden through $GITHUB_ENV. Without a tag (plain manual run) only `latest` is pushed.
+      # The tag rules in the container targets read $RELEASE_TAG. Without a tag (a manual run on a
+      # branch) only `latest` is pushed.
       - name: Resolve the release tag
-        env:
-          INPUT_REF: ${{ inputs.ref }}
         run: |
-          tag="$INPUT_REF"
-          if [ -z "$tag" ] && [ "$GITHUB_REF_TYPE" = "tag" ]; then tag="$GITHUB_REF_NAME"; fi
-          if [ -n "$tag" ]; then echo "RELEASE_TAG=${tag}" >> "$GITHUB_ENV"; fi
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then echo "RELEASE_TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"; fi
 
       - name: Set up QEMU (multi-arch emulation)
         uses: docker/setup-qemu-action@v3

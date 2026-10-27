@@ -78,10 +78,11 @@ Managing tokens, passwords and the account itself needs a browser session.
 
 ## Publishing images and releases
 
-Images are published to Docker Hub as `eversit/work-backend` and `eversit/work-frontend`. Run the **release**
-workflow (Actions, "Run workflow" on `main`): `nx release` derives the next version from the conventional
-commits, updates `CHANGELOG.md`, tags `vX.Y.Z`, creates the GitHub release, and the **publish** workflow pushes
-the images as `X.Y.Z` and `latest`. The first run needs "first release" ticked.
+Images are published to Docker Hub as `eversit/work-backend` and `eversit/work-frontend`. Releases are cut from
+`main` on a maintainer's machine: `npx nx release` derives the next version from the conventional commits, tags
+`vX.Y.Z`, pushes the tag and creates the GitHub release (it needs a personal `GITHUB_TOKEN` or `GH_TOKEN`; the first
+release needs `--first-release`). Publishing the release starts the **publish** workflow, which pushes the images as
+`X.Y.Z` and `latest`. A manual run of **publish** on a tag (`build_all` ticked) pushes them again.
 
 One-time setup: create the two public repositories on Docker Hub, and add the repository secrets
 `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (an access token with Read & Write). To publish somewhere else, set the
