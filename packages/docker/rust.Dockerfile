@@ -30,7 +30,7 @@ RUN set -eu; \
     case "${TARGETARCH}" in \
       amd64) cp /tmp/bin-amd64 /usr/local/bin/app ;; \
       arm64) cp /tmp/bin-arm64 /usr/local/bin/app ;; \
-      *) echo "rust.Dockerfile: unsupported TARGETARCH '${TARGETARCH}'" >&2; exit 1 ;; \
+      *) echo "packages/docker/rust.Dockerfile: unsupported TARGETARCH '${TARGETARCH}'" >&2; exit 1 ;; \
     esac; \
     chmod 0755 /usr/local/bin/app; \
     rm -f /tmp/bin-amd64 /tmp/bin-arm64

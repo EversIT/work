@@ -1,10 +1,10 @@
 # Runs the published images. Only the frontend is published to the host; the backend and the
 # database live on an internal network, and the browser reaches the API through the frontend's
 # /api/v1 proxy. Every secret must come from the environment: compose refuses to start if one is
-# missing (see .env.example).
+# missing (see .env.example next to this file).
 #
 # Images:
-#   GHCR:   WORK_BACKEND_IMAGE=ghcr.io/<owner>/backend:latest   WORK_FRONTEND_IMAGE=ghcr.io/<owner>/frontend:latest
+#   Hub:    WORK_BACKEND_IMAGE=eversit/work-backend:1.0.0   WORK_FRONTEND_IMAGE=eversit/work-frontend:1.0.0
 #   local:  npx nx run-many -t container:local   ->   work-backend:latest, work-frontend:latest
 #
 # `docker compose --profile dev up` also starts Mailpit, a local mail catcher (web UI on
@@ -36,6 +36,10 @@ services:
       WORK_REGISTRATION_ENABLED: ${WORK_REGISTRATION_ENABLED:-true}
       WORK_TRUST_FORWARDED_FOR: 'true' # the only client of the backend is our own frontend proxy
       WORK_AUTH_RATE_LIMIT: ${WORK_AUTH_RATE_LIMIT:-10}
+      # `postgres` shares the rate-limit counters between several backend instances.
+      WORK_RATE_LIMIT_BACKEND: ${WORK_RATE_LIMIT_BACKEND:-memory}
+      # Sign-ups must confirm their e-mail address. Empty = on whenever SMTP is configured.
+      WORK_REQUIRE_EMAIL_VERIFICATION: ${WORK_REQUIRE_EMAIL_VERIFICATION:-}
       # Optional: outgoing e-mail (password reset, invitations, notifications, automations).
       WORK_SMTP_HOST: ${WORK_SMTP_HOST:-}
       WORK_SMTP_PORT: ${WORK_SMTP_PORT:-587}
@@ -43,10 +47,36 @@ services:
       WORK_SMTP_PASS: ${WORK_SMTP_PASS:-}
       WORK_SMTP_FROM: ${WORK_SMTP_FROM:-}
       WORK_SMTP_TLS: ${WORK_SMTP_TLS:-starttls}
-      # Optional: Slack integration (needs the encryption key).
+      # Optional: the encryption key also enables two-factor authentication. Slack needs it too.
       WORK_ENCRYPTION_KEY: ${WORK_ENCRYPTION_KEY:-}
       WORK_SLACK_CLIENT_ID: ${WORK_SLACK_CLIENT_ID:-}
       WORK_SLACK_CLIENT_SECRET: ${WORK_SLACK_CLIENT_SECRET:-}
+      # File storage: local (the `uploads` volume), s3 (AWS or any S3-compatible service) or azure.
+      # Without keys, S3 and Azure use the identity of the environment (instance role, managed identity).
+      WORK_STORAGE: ${WORK_STORAGE:-local}
+      WORK_S3_BUCKET: ${WORK_S3_BUCKET:-}
+      WORK_S3_REGION: ${WORK_S3_REGION:-}
+      WORK_S3_ENDPOINT: ${WORK_S3_ENDPOINT:-}
+      WORK_S3_ACCESS_KEY_ID: ${WORK_S3_ACCESS_KEY_ID:-}
+      WORK_S3_SECRET_ACCESS_KEY: ${WORK_S3_SECRET_ACCESS_KEY:-}
+      WORK_AZURE_ACCOUNT: ${WORK_AZURE_ACCOUNT:-}
+      WORK_AZURE_CONTAINER: ${WORK_AZURE_CONTAINER:-}
+      WORK_AZURE_ACCESS_KEY: ${WORK_AZURE_ACCESS_KEY:-}
+      # Optional: single sign-on. Register `${WORK_FRONTEND_URL}/api/v1/auth/sso/<provider>/callback` as the
+      # redirect URI at the provider. Microsoft needs a pinned tenant (never common/organizations).
+      WORK_SSO_GOOGLE_CLIENT_ID: ${WORK_SSO_GOOGLE_CLIENT_ID:-}
+      WORK_SSO_GOOGLE_CLIENT_SECRET: ${WORK_SSO_GOOGLE_CLIENT_SECRET:-}
+      WORK_SSO_GITHUB_CLIENT_ID: ${WORK_SSO_GITHUB_CLIENT_ID:-}
+      WORK_SSO_GITHUB_CLIENT_SECRET: ${WORK_SSO_GITHUB_CLIENT_SECRET:-}
+      WORK_SSO_MICROSOFT_CLIENT_ID: ${WORK_SSO_MICROSOFT_CLIENT_ID:-}
+      WORK_SSO_MICROSOFT_CLIENT_SECRET: ${WORK_SSO_MICROSOFT_CLIENT_SECRET:-}
+      WORK_SSO_MICROSOFT_TENANT: ${WORK_SSO_MICROSOFT_TENANT:-}
+      WORK_SSO_SLACK_CLIENT_ID: ${WORK_SSO_SLACK_CLIENT_ID:-}
+      WORK_SSO_SLACK_CLIENT_SECRET: ${WORK_SSO_SLACK_CLIENT_SECRET:-}
+      # SAML: the IdP metadata is a file inside the container (mount it, e.g. `./saml:/data/saml:ro`).
+      WORK_SAML_IDP_METADATA_FILE: ${WORK_SAML_IDP_METADATA_FILE:-}
+      WORK_SAML_ENTITY_ID: ${WORK_SAML_ENTITY_ID:-}
+      WORK_SAML_SP_KEY_FILE: ${WORK_SAML_SP_KEY_FILE:-}
       # Automations: outgoing webhooks may only reach public https hosts unless you relax this.
       WORK_WEBHOOK_ALLOW_PRIVATE: ${WORK_WEBHOOK_ALLOW_PRIVATE:-false}
       WORK_WEBHOOK_ALLOW_HTTP: ${WORK_WEBHOOK_ALLOW_HTTP:-false}
