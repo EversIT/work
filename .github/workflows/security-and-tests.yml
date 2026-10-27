@@ -50,19 +50,37 @@ jobs:
         with:
           workspaces: '. -> dist/target'
       - run: npm ci --ignore-scripts
-      - run: cargo fmt --all -- --check
-      - run: npx nx run backend:lint
       # Includes the #[ignore]d end-to-end tests that need the Postgres service above.
       - run: npx nx run backend:test --args=--include-ignored
       # The committed spec must match the code, so API changes are always reviewed. (The frontend
       # builds its client from this file and needs no Rust.)
       - run: npx nx run backend:openapi
       - run: git diff --exit-code apps/backend/openapi.json
+  # Formatting and clippy run next to the tests instead of before them: they need their own compile
+  # (check metadata, not code), so in one job the times add up; as separate jobs they overlap.
+  backend-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: npm }
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> dist/target'
+      - run: npm ci --ignore-scripts
+      - run: cargo fmt --all -- --check
+      - run: npx nx run backend:lint
+  # Reads Cargo.lock only; nothing is compiled, so it needs neither the Rust cache nor Node.
+  backend-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
       # A prebuilt binary: `cargo install` compiled cargo-audit from source on every run.
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-audit
-      - run: npx nx run backend:audit
+      - run: cargo audit
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -75,7 +93,7 @@ jobs:
   e2e:
     # Production images through the compose file, then the browser tests against http://localhost:3000.
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [backend, backend-lint, backend-audit, frontend]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -87,7 +105,11 @@ jobs:
         with:
           workspaces: '. -> dist/target'
       - run: npm ci --ignore-scripts
+      # The container plugin detects GitHub Actions and asks for the workflow's token (it only reads
+      # repository metadata for the image labels); the publish workflow passes it the same way.
       - run: npx nx run-many -t container:local
+        env:
+          INPUT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Start the stack with throw-away secrets
         run: |
           {
@@ -113,7 +135,15 @@ jobs:
           E2E_MAILPIT_API: http://127.0.0.1:8025
           # The hardened backend refuses private webhook targets (that is the SSRF guard working).
           E2E_SKIP_OUTGOING: '1'
+      # These two only make sense once the stack was started; if an earlier step failed before that,
+      # the env file does not exist and they must not hide the real error.
       - if: failure()
-        run: docker compose -f deploy/docker-compose.yml --env-file "$RUNNER_TEMP/stack.env" logs --tail 200
+        run: |
+          if [ -f "$RUNNER_TEMP/stack.env" ]; then
+            docker compose -f deploy/docker-compose.yml --env-file "$RUNNER_TEMP/stack.env" logs --tail 200
+          fi
       - if: always()
-        run: docker compose -f deploy/docker-compose.yml --env-file "$RUNNER_TEMP/stack.env" --profile dev down -v
+        run: |
+          if [ -f "$RUNNER_TEMP/stack.env" ]; then
+            docker compose -f deploy/docker-compose.yml --env-file "$RUNNER_TEMP/stack.env" --profile dev down -v
+          fi
