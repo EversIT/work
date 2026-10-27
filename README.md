@@ -82,7 +82,7 @@ Images are published to Docker Hub as `eversit/work-backend` and `eversit/work-f
 `main` on a maintainer's machine: `npx nx release` derives the next version from the conventional commits, tags
 `vX.Y.Z`, pushes the tag and creates the GitHub release (it needs a personal `GITHUB_TOKEN` or `GH_TOKEN`; the first
 release needs `--first-release`). Publishing the release starts the **publish** workflow, which pushes the images as
-`X.Y.Z`, `X.Y`, `X`, `vX.Y.Z` and `latest` (no branch tag). A manual run of **publish** on a tag (`build_all` ticked) pushes them again.
+`X.Y.Z`, `X.Y`, `X` and `latest` (no branch tag). A manual run of **publish** on a tag (`build_all` ticked) pushes them again.
 
 One-time setup: create the two public repositories on Docker Hub, and add the repository secrets
 `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (an access token with Read & Write). To publish somewhere else, set the
