@@ -1,0 +1,48 @@
+name: docs
+
+# Builds the documentation site (apps/docs, VitePress) and publishes it to GitHub Pages.
+# One-time setup: Settings -> Pages -> Source: "GitHub Actions". The site is also available as an
+# image (eversit/work-docs, built by the publish workflow) and as static files in dist/apps/docs,
+# so any other host works too.
+#
+# DOCS_BASE is the path the site is served under: a project site on GitHub Pages lives at
+# /<repo>/; with a custom domain set the repository variable DOCS_BASE to /.
+# DOCS_DEMO_URL (optional repository variable) adds a "Live demo" link to the navigation.
+on:
+  push:
+    branches: [main]
+    paths: ['apps/docs/**', '.github/workflows/docs.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      DOCS_BASE: ${{ vars.DOCS_BASE || format('/{0}/', github.event.repository.name) }}
+      DOCS_DEMO_URL: ${{ vars.DOCS_DEMO_URL }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts --prefer-offline --no-audit --no-fund
+      - run: npx nx run docs:build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/apps/docs
+      - id: deployment
+        uses: actions/deploy-pages@v4
