@@ -4,6 +4,10 @@ on:
   pull_request:
 permissions:
   contents: read
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   backend:
     runs-on: ubuntu-latest
@@ -40,13 +44,21 @@ jobs:
           docker run -d -p 10000:10000 -e "AZURITE_ACCOUNTS=work:$AZURE_KEY" mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
           sleep 8
       - run: rustup show
+      # `.cargo/config.toml` puts the build output in dist/target; the cache must look there, or every
+      # run compiles all ~400 crates from scratch.
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> dist/target'
       - run: npm ci --ignore-scripts
       - run: cargo fmt --all -- --check
       - run: npx nx run backend:lint
       # Includes the #[ignore]d end-to-end tests that need the Postgres service above.
       - run: npx nx run backend:test --args=--include-ignored
-      - run: cargo install cargo-audit --locked && npx nx run backend:audit
+      # A prebuilt binary: `cargo install` compiled cargo-audit from source on every run.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - run: npx nx run backend:audit
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -54,7 +66,11 @@ jobs:
       - uses: actions/setup-node@v5
         with: { node-version: 24, cache: npm }
       - run: rustup show
+      # `.cargo/config.toml` puts the build output in dist/target; the cache must look there, or every
+      # run compiles all ~400 crates from scratch.
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> dist/target'
       - run: npm ci --ignore-scripts
       - run: npm audit --omit=dev --audit-level=high
       - run: npx nx run frontend:build
@@ -69,7 +85,11 @@ jobs:
       - uses: actions/setup-node@v5
         with: { node-version: 24, cache: npm }
       - run: rustup show
+      # `.cargo/config.toml` puts the build output in dist/target; the cache must look there, or every
+      # run compiles all ~400 crates from scratch.
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> dist/target'
       - run: npm ci --ignore-scripts
       - run: npx nx run-many -t container:local
       - name: Start the stack with throw-away secrets
