@@ -1,95 +1,68 @@
 # work
 
-An open-source, self-hosted alternative to Jira: projects with boards, backlog and sprints, issue keys (`WORK-12`),
-issue types, priorities, story points, automations with webhooks, and an API with personal API tokens.
+An open-source, self-hosted work-management tool in the spirit of Jira Cloud: projects with boards, backlog
+and sprints, issue keys (`WORK-12`), issue types, priorities, story points, rich-text descriptions that several
+people edit at once, automations with webhooks, and a documented API with personal API tokens.
 
-Built with a **Rust** backend (Axum, SQLx, PostgreSQL) and a **Next.js** frontend on **HeroUI v3**. It started as a
-port of an existing NestJS/Vue project; the security problems found in that code were designed out
-(see [docs/SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md)).
+A **Rust** backend (Axum, SQLx, PostgreSQL) and a **Next.js** frontend on **HeroUI v3**.
 
-## What you get
+## Features
 
-- **Projects** (Kanban or Scrum) in **spaces**, public or private with per-user grants, inside **workspaces** with an
-  issue key prefix. Roles per project: viewer, member, admin, owner.
-- **Board, backlog, list, calendar and timeline.** Drag and drop between statuses and sprints; start and complete sprints.
-- **Issues** with type (Epic, Story, Task, Bug, Sub-task), summary, description, assignee, reporter, priority, labels,
-  story points, dates, child issues, comments with attachments, history, watchers and notifications (in-app live via
-  SSE, e-mail, Slack). Custom issue types and fields.
-- **Search and filters:** by key or text from the top bar, quick filters, saved filters per view.
-- **Automations:** triggers (issue created, field changed, status changed, comment, assignee changed, **incoming
-  webhook**) and actions (set field, move, assign, comment, create issue or sub-task, **send webhook**, **send e-mail**).
-- **API:** everything the UI does is a documented REST call. Create **API tokens** in your account settings and use
-  them as `Authorization: Bearer wrk_…` or, Jira-style, with Basic auth `email:token`. The OpenAPI document is served at
-  `/api/v1/openapi.json`.
-- **English and German.** The language is stored in a cookie, never in the URL.
+- **Projects** (Kanban or Scrum), created in one step, grouped in spaces (public or private with per-user grants)
+  inside workspaces with an issue key prefix. Roles per project: viewer, member, admin, owner.
+- **Board, backlog, list, table, calendar and timeline.** Drag and drop between statuses and sprints; group list
+  and table by status or any field.
+- **Issues** with type, summary, rich-text description (live editing by several people), assignee, reporter,
+  priority, labels, story points, dates, child issues, comments with formatting and attachments, history,
+  watchers and notifications (live, e-mail, Slack). Custom issue types and fields, and contact, company and
+  deal layouts for light CRM use.
+- **Search and filters** from the top bar, quick filters and saved filters per view.
+- **Automations:** triggers (issue created, field changed, status changed, comment, assignee changed, a date
+  arrives, incoming webhook) and actions (set field, move, assign, comment, create issue, send webhook, send e-mail).
+- **API:** everything the UI does is a documented REST call. Use `Authorization: Bearer wrk_…` or, Jira-style,
+  Basic `email:token`. The OpenAPI document is at `/api/v1/openapi.json`.
+- **Sign-in:** password with a policy and lock-out, **passkeys (WebAuthn)**, **authenticator-app codes**,
+  e-mail confirmation, and single sign-on with **Google, GitHub, Microsoft, Slack, any OpenID Connect provider
+  and SAML 2.0**.
+- **Administration:** an admin panel for the instance's name, description, favicon and accent colour, an overview
+  of users, projects and settings, user management and an audit log.
+- **Files** on local disk, S3 (or compatible) or Azure Blob Storage.
+- **English and German.**
 
-## Architecture
+## Quick start
 
-```
-browser ──► Next.js (:3000) ──/api/v1/*──► Rust backend (127.0.0.1:3001) ──► PostgreSQL
-              HeroUI v3        proxy          Axum + SQLx
-                 ▲                                │
-                 └──── orval-generated client ◄── OpenAPI (utoipa)
-```
-
-- Only the frontend port is exposed. The backend is reached through the Next proxy (`apps/frontend/src/proxy.ts`).
-- The backend generates its OpenAPI document. `apps/backend/openapi.json` is committed, CI fails if it is stale, and
-  `orval` generates the typed React Query client from it into `apps/frontend/src/api/generated` (git-ignored).
-- Rust is wired into Nx with [`@monodon/rust`](https://nx.dev/docs/kb/add-rust-to-nx-workspace); `apps/backend` is a normal Nx project.
-
-## Develop
-
-Requirements: Node 24+, Rust via [rustup](https://rustup.rs) (toolchain pinned in `rust-toolchain.toml`), PostgreSQL 15+,
-Docker (for the image targets and tests).
+Requirements: Node 24+, Rust (via [rustup](https://rustup.rs)), PostgreSQL 15+, Docker for images and tests.
 
 ```sh
-cp .env.example .env        # fill in every required value; there are no defaults for secrets
 npm ci
-npx nx run backend:serve    # needs the WORK_* variables from .env in the environment
-npx nx run frontend:dev     # regenerates the API client first
+cp deploy/.env.example .env     # fill in the required values; there are no defaults for secrets
+npx nx run backend:serve        # needs the WORK_* variables from .env in its environment
+npx nx run frontend:dev
 ```
 
-Useful targets: `npx nx run backend:test`, `backend:lint`, `backend:openapi`, `frontend:orval`, `frontend:build`,
-`frontend-e2e:e2e`.
+The first account you create is the instance administrator.
 
-### Tests
-
-| What | How |
-|------|-----|
-| Unit tests | `npx nx run backend:test` |
-| Database end-to-end (authorization, SSRF, webhooks, sprints, …) | `DATABASE_URL=postgres://… npx nx run backend:test --args=--include-ignored` |
-| Mail flows (password reset, invitations, automation mail) | additionally `TEST_SMTP_PORT=… TEST_MAILPIT_API=http://…` pointing at a [Mailpit](https://mailpit.axllent.org) |
-| Browser end-to-end (Playwright) | start backend + frontend (or the compose stack), then `PW_CHANNEL=chrome E2E_BASE_URL=http://localhost:3000 npx nx run frontend-e2e:e2e` |
-
-## Docker images
-
-Nx builds both images (`@nx-tools/nx-container`), packaging prebuilt artifacts:
-
-| Image | Dockerfile | Built from |
-|-------|------------|------------|
-| `backend` | `rust.Dockerfile` (ubuntu base, non-root, linux/amd64 + linux/arm64) | `backend:build`, `backend:build-arm64` |
-| `frontend` | `next.Dockerfile` | `frontend:build` (Next standalone output) |
+With Docker:
 
 ```sh
-npx nx run-many -t container:local      # builds work-backend:latest and work-frontend:latest
+npx nx run-many -t container:local
+docker compose -f deploy/docker-compose.yml --env-file .env up
 ```
 
-**Publishing** is the `publish` GitHub Actions workflow (manual dispatch or a published release). It pushes
-`ghcr.io/<owner>/backend` and `ghcr.io/<owner>/frontend` with the built-in `GITHUB_TOKEN`; nothing to configure.
-To move to **Docker Hub** later, set the repository variables `IMAGE_REGISTRY=docker.io` and
-`IMAGE_NAMESPACE=<hub user or org>` and add the `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` secrets. The workflow itself
-does not change.
+Compose refuses to start when a secret is missing and publishes only `127.0.0.1:3000`; put a TLS-terminating
+reverse proxy in front for production and set `WORK_FRONTEND_URL` to the public `https://` address.
 
-## Run with Docker
+## Documentation
 
-```sh
-cp .env.example .env   # fill in the required values, including the two image refs
-docker compose up
-```
-
-Compose refuses to start when a secret is missing. Only `127.0.0.1:3000` is published. Put a TLS-terminating reverse proxy
-in front for production and set `WORK_FRONTEND_URL` to the public `https://` URL. `docker compose --profile dev up` adds
-Mailpit (web UI on `127.0.0.1:8025`) for trying e-mail features.
+|                                                                    |                                                         |
+| ------------------------------------------------------------------ | ------------------------------------------------------- |
+| [apps/docs/src/DEVELOPMENT.md](apps/docs/src/DEVELOPMENT.md)       | set up, tests, conventions, recipes                     |
+| [apps/docs/src/ARCHITECTURE.md](apps/docs/src/ARCHITECTURE.md)     | how the code is organised and why                       |
+| [apps/docs/src/CONFIGURATION.md](apps/docs/src/CONFIGURATION.md)   | every environment variable                              |
+| [apps/docs/src/SECURITY-MODEL.md](apps/docs/src/SECURITY-MODEL.md) | how it is protected, and what is left                   |
+| [apps/docs/src/DATA-MIGRATION.md](apps/docs/src/DATA-MIGRATION.md) | importing from the NestJS/Vue project this derives from |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                                 | how to contribute                                       |
+| [SECURITY.md](SECURITY.md)                                         | how to report a vulnerability                           |
 
 ## Using the API
 
@@ -103,6 +76,30 @@ curl -X POST -H "Authorization: Bearer wrk_…" -H "content-type: application/js
 Tokens are read-only or read-write, can expire, act with your permissions and can be revoked at any time.
 Managing tokens, passwords and the account itself needs a browser session.
 
+## Publishing images and releases
+
+Images are published to Docker Hub as `eversit/work-backend`, `eversit/work-frontend`, `eversit/work-docs` (the
+documentation site) and `eversit/work-demo` (the demo, see below). Run the **release**
+workflow (Actions, "Run workflow" on `main`): `nx release` derives the next version from the conventional
+commits, updates `CHANGELOG.md`, tags `vX.Y.Z`, creates the GitHub release, and the **publish** workflow pushes
+the images as `X.Y.Z`, `X.Y`, `X` and `latest`. The first run needs "first release" ticked.
+
+One-time setup: create the four public repositories on Docker Hub, and add the repository secrets
+`DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (an access token with Read & Write). To publish somewhere else, set the
+repository variables `IMAGE_REGISTRY` and `IMAGE_NAMESPACE`. The installation guide is in
+[apps/docs](apps/docs/src) (VitePress) and can be published to GitHub Pages by the **docs** workflow or run as its own
+image, `eversit/work-docs`.
+
+## Documentation site and demo
+
+- **Docs:** `apps/docs` is a [VitePress](https://vitepress.dev) site (pages in `apps/docs/src`).
+  `npx nx run docs:dev` to write, `npx nx run docs:build` to build into `dist/apps/docs`, and the `work-docs` image
+  serves it with nginx.
+- **Demo:** `apps/demo` builds the frontend with `NEXT_PUBLIC_DEMO=true`. Every API call is then answered in the browser
+  from made-up data (`apps/frontend/src/demo`): no backend, no database, nothing is stored, and a reload starts over.
+  `npx nx run demo:dev` (port 3100) or `docker run -p 3000:3000 eversit/work-demo`.
+
 ## License
 
-MIT, see [LICENSE](LICENSE). The license keeps the copyright notice of the original project this code derives from, as the MIT license requires.
+MIT, see [LICENSE](LICENSE). The license keeps the copyright notice of the original project this code derives
+from, as the MIT license requires.

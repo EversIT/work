@@ -91,5 +91,26 @@
         "linter": "oxlint"
       }
     }
+  },
+  "release": {
+    "projects": ["work"],
+    "version": {
+      "conventionalCommits": true
+    },
+    "changelog": {
+      "workspaceChangelog": {
+        "file": "CHANGELOG.md",
+        "createRelease": "github"
+      },
+      "automaticFromRef": true
+    },
+    "git": {
+      "commit": true,
+      "tag": true,
+      "commitMessage": "chore(release): v{version} [skip ci]"
+    },
+    "releaseTag": {
+      "pattern": "v{version}"
+    }
   }
 }
