@@ -36,6 +36,16 @@ pub fn is_public_ip(ip: IpAddr) -> bool {
                 return is_public_v4(v4);
             }
             let seg = v6.segments();
+            // Deprecated IPv4-compatible form ::a.b.c.d (also covers ::/96 hosts like ::7f00:1).
+            if seg[..6] == [0; 6] {
+                let [a, b] = seg[6..8] else { return false };
+                return is_public_v4(Ipv4Addr::new(
+                    (a >> 8) as u8,
+                    a as u8,
+                    (b >> 8) as u8,
+                    b as u8,
+                ));
+            }
             if seg[0] == 0x64 && seg[1] == 0xff9b && seg[2..6] == [0, 0, 0, 0] {
                 let [a, b] = seg[6..8] else { return false };
                 return is_public_v4(Ipv4Addr::new(

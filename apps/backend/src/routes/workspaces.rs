@@ -10,9 +10,9 @@ use uuid::Uuid;
 
 use super::OkOut;
 use crate::{
-    auth::AuthUser,
-    authz::{require_role, require_workspace_role, Role},
     error::{ApiError, ApiResult},
+    security::auth::AuthUser,
+    security::authz::{require_role, require_workspace_role, Role},
     state::AppState,
     util::short,
 };
@@ -20,6 +20,7 @@ use crate::{
 pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(list, create))
+        .routes(routes!(by_key))
         .routes(routes!(get_one, update, remove))
 }
 
@@ -84,6 +85,65 @@ pub struct WorkspaceCreate {
     pub key_prefix: Option<String>,
 }
 
+/// `base` with a numeric suffix (`n` >= 2), shortened so the result stays within 10 characters:
+/// `WORK` -> `WORK2`, `ABCDEFGHIJ` -> `ABCDEFGHI2`. `n` = 1 is the key itself.
+pub fn suffixed_key(base: &str, n: u32) -> String {
+    if n <= 1 {
+        return base.to_owned();
+    }
+    let suffix = n.to_string();
+    let keep = 10usize.saturating_sub(suffix.len());
+    format!("{}{suffix}", &base[..base.len().min(keep)])
+}
+
+/// Insert a workspace plus its default issue types. Keys are unique instance-wide: with
+/// `derived` the first free `base`, `base2`, `base3`, ... is taken (a concurrent creation that
+/// wins the race is retried); otherwise a taken key is a 409.
+async fn insert_workspace(
+    s: &AppState,
+    project_id: Uuid,
+    user_id: Uuid,
+    name: &str,
+    base: &str,
+    derived: bool,
+) -> ApiResult<WorkspaceOut> {
+    let sql = format!("INSERT INTO workspaces (id, project_id, name, key_prefix) VALUES ($1,$2,$3,$4) RETURNING {COLS}");
+    for _ in 0..5 {
+        let key = if derived {
+            let candidates: Vec<String> = (1..=1000).map(|n| suffixed_key(base, n)).collect();
+            let taken: Vec<(String,)> =
+                sqlx::query_as("SELECT key_prefix FROM workspaces WHERE key_prefix = ANY($1)")
+                    .bind(&candidates)
+                    .fetch_all(&s.db)
+                    .await?;
+            candidates
+                .into_iter()
+                .find(|c| !taken.iter().any(|(t,)| t == c))
+                .ok_or(ApiError::Conflict)?
+        } else {
+            base.to_owned()
+        };
+        let mut tx = s.db.begin().await?;
+        let row: WorkspaceOut = match sqlx::query_as(&sql)
+            .bind(Uuid::new_v4())
+            .bind(project_id)
+            .bind(name)
+            .bind(&key)
+            .fetch_one(&mut *tx)
+            .await
+        {
+            Ok(r) => r,
+            Err(sqlx::Error::Database(e)) if derived && e.is_unique_violation() => continue,
+            Err(e) => return Err(e.into()),
+        };
+        // Every workspace starts with Jira-style issue types and fields.
+        super::card_types::seed_default_card_type(&mut tx, row.id, user_id).await?;
+        tx.commit().await?;
+        return Ok(row);
+    }
+    Err(ApiError::Conflict)
+}
+
 #[utoipa::path(operation_id = "createWorkspace", post, path = "/projects/{id}/workspaces", tag = "workspaces",
     params(("id" = Uuid, Path)), request_body = WorkspaceCreate,
     responses((status = 200, body = WorkspaceOut), (status = 403), (status = 404)), security(("bearer" = [])))]
@@ -95,26 +155,49 @@ async fn create(
 ) -> ApiResult<Json<WorkspaceOut>> {
     require_role(&s.db, user.id, pid, Role::Member).await?;
     short(&b.name, 100, "name")?;
-    let key = match &b.key_prefix {
+    let row = match &b.key_prefix {
+        // An explicit key that is taken is a conflict (the unique index maps to 409).
         Some(k) => {
             check_key(k)?;
-            k.clone()
+            insert_workspace(&s, pid, user.id, b.name.trim(), k, false).await?
         }
-        None => derive_key_prefix(&b.name),
+        None => {
+            insert_workspace(
+                &s,
+                pid,
+                user.id,
+                b.name.trim(),
+                &derive_key_prefix(&b.name),
+                true,
+            )
+            .await?
+        }
     };
-    let mut tx = s.db.begin().await?;
-    let sql = format!("INSERT INTO workspaces (id, project_id, name, key_prefix) VALUES ($1,$2,$3,$4) RETURNING {COLS}");
-    let row: WorkspaceOut = sqlx::query_as(&sql)
-        .bind(Uuid::new_v4())
-        .bind(pid)
-        .bind(b.name.trim())
-        .bind(&key)
-        .fetch_one(&mut *tx)
-        .await?;
-    // Every workspace starts with Jira-style issue types and fields.
-    super::card_types::seed_default_card_type(&mut tx, row.id, user.id).await?;
-    tx.commit().await?;
     Ok(Json(row))
+}
+
+/// Look a workspace up by its issue-key prefix (`ACME`), case-insensitively. Unknown keys and
+/// workspaces of projects the caller is not in look identical.
+#[utoipa::path(get, operation_id = "getWorkspaceByKey", path = "/workspaces/by-key/{key}", tag = "workspaces",
+    params(("key" = String, Path)), responses((status = 200, body = WorkspaceOut), (status = 404)), security(("bearer" = [])))]
+async fn by_key(
+    State(s): State<AppState>,
+    user: AuthUser,
+    Path(key): Path<String>,
+) -> ApiResult<Json<WorkspaceOut>> {
+    let id = workspace_id_by_key(&s.db, &key)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    get_one(State(s), user, Path(id)).await
+}
+
+/// The workspace owning an issue-key prefix (`acme` and `ACME` are the same key).
+pub async fn workspace_id_by_key(db: &sqlx::PgPool, key: &str) -> ApiResult<Option<Uuid>> {
+    let row: Option<(Uuid,)> = sqlx::query_as("SELECT id FROM workspaces WHERE key_prefix = $1")
+        .bind(key.to_uppercase())
+        .fetch_optional(db)
+        .await?;
+    Ok(row.map(|(id,)| id))
 }
 
 #[utoipa::path(get, operation_id = "getWorkspace", path = "/workspaces/{id}", tag = "workspaces",
@@ -194,6 +277,10 @@ mod tests {
         assert_eq!(derive_key_prefix("work"), "WORK");
         assert_eq!(derive_key_prefix("1st"), "WRK");
         assert_eq!(derive_key_prefix("!!"), "WRK");
+        assert_eq!(suffixed_key("WORK", 1), "WORK");
+        assert_eq!(suffixed_key("WORK", 2), "WORK2");
+        assert_eq!(suffixed_key("ABCDEFGHIJ", 2), "ABCDEFGHI2");
+        assert_eq!(suffixed_key("ABCDEFGHIJ", 12), "ABCDEFGH12");
         assert!(check_key("WORK").is_ok() && check_key("W2").is_ok());
         assert!(
             check_key("w").is_err()

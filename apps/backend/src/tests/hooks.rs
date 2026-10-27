@@ -17,7 +17,7 @@ use axum::{
 use serde_json::{json, Value};
 use sqlx::PgPool;
 
-use crate::e2e::Client;
+use crate::tests::harness::Client;
 
 fn id(v: &Value) -> String {
     v["id"].as_str().unwrap().to_owned()
@@ -487,7 +487,7 @@ async fn outgoing_webhooks_are_signed(db: PgPool) {
         .as_str()
         .unwrap()
         .to_owned();
-    let expected = crate::automations::sign(&hex::decode(secret).unwrap(), &body);
+    let expected = crate::domain::automations::sign(&hex::decode(secret).unwrap(), &body);
     assert_eq!(headers["x-work-signature"].to_str().unwrap(), expected);
     let (m, _) = c
         .join(&w.owner, &w.project, "member@example.test", "member")
@@ -936,4 +936,239 @@ async fn automations_send_mail_only_to_project_members(db: PgPool) {
     );
     assert!(mail_to(&api, &external).await.is_none());
     let _ = a_member;
+}
+
+// ---- date-based triggers (scheduler) ------------------------------------------------------------
+
+#[sqlx::test(migrations = "./migrations")]
+#[ignore = "needs DATABASE_URL"]
+async fn date_triggers_fire_once_per_date_and_respect_scope_and_state(db: PgPool) {
+    use chrono::{Duration as D, Utc};
+    let c = Client::new(db);
+    let w = world(&c).await;
+    let now = Utc::now();
+    let comment =
+        |txt: &str| json!([{"action_type": "create_comment", "config": {"content": txt}}]);
+    let make = |name: &str, cfg: Value, enabled: bool| {
+        let body = json!({"name": name, "is_enabled": enabled, "trigger_type": "date_arrives", "trigger_config": cfg, "steps": comment("Due soon: {{trigger.card.data.title}}")});
+        let (c, ws, owner) = (&c, w.ws.clone(), w.owner.clone());
+        async move {
+            id(&c
+                .ok(
+                    "POST",
+                    &format!("/workspaces/{ws}/automations"),
+                    &owner,
+                    Some(body),
+                )
+                .await)
+        }
+    };
+    let runs = |aid: &str| {
+        let (c, owner, aid) = (&c, w.owner.clone(), aid.to_owned());
+        async move {
+            c.ok("GET", &format!("/automations/{aid}/runs"), &owner, None)
+                .await
+                .as_array()
+                .unwrap()
+                .len()
+        }
+    };
+
+    // Invalid trigger configs are refused when saving.
+    for bad in [
+        json!({"field": "Due At"}),
+        json!({"offset_minutes": 10_000_000}),
+    ] {
+        let (st, _) = c
+            .api("POST", &format!("/workspaces/{}/automations", w.ws), &w.owner, Some(json!({"name": "x", "trigger_type": "date_arrives", "trigger_config": bad, "steps": comment("x")})))
+            .await;
+        assert_eq!(st, StatusCode::BAD_REQUEST);
+    }
+
+    // "One hour before the due date" and "when the start date arrives", plus one that is switched off.
+    let before = make(
+        "Due in an hour",
+        json!({"field": "due_at", "offset_minutes": -60}),
+        true,
+    )
+    .await;
+    let start = make("Started", json!({"field": "starts_at"}), true).await;
+    let off = make(
+        "Disabled",
+        json!({"field": "due_at", "offset_minutes": -60}),
+        false,
+    )
+    .await;
+
+    let card = |title: &str, data: Value| {
+        let mut d = data;
+        d["title"] = json!(title);
+        let (c, owner, list) = (&c, w.owner.clone(), w.list.clone());
+        async move {
+            id(&c
+                .ok(
+                    "POST",
+                    &format!("/lists/{list}/cards"),
+                    &owner,
+                    Some(json!({"data": d})),
+                )
+                .await)
+        }
+    };
+    let due_in_70 = (now + D::minutes(70)).to_rfc3339();
+    let a = card(
+        "Release",
+        json!({"due_at": due_in_70, "starts_at": (now - D::minutes(1)).to_rfc3339()}),
+    )
+    .await;
+    let _later = card(
+        "Much later",
+        json!({"due_at": (now + D::days(5)).to_rfc3339()}),
+    )
+    .await;
+    let _undated = card("No date", json!({})).await;
+
+    // The window of this first tick is the last five minutes before `t0`.
+    let t0 = now + D::seconds(30);
+    crate::services::scheduler::tick(&c.state, t0)
+        .await
+        .unwrap();
+    assert_eq!(runs(&start).await, 1, "the start date was reached");
+    assert_eq!(
+        runs(&before).await,
+        0,
+        "10 minutes to go until the hour-before moment"
+    );
+    assert_eq!(runs(&off).await, 0, "disabled automations never fire");
+    let acts = c
+        .ok("GET", &format!("/cards/{a}/activities"), &w.owner, None)
+        .await;
+    assert!(acts.to_string().contains("Due soon: Release"), "{acts}");
+
+    // Ticking again changes nothing; time passing makes the offset moment arrive exactly once.
+    crate::services::scheduler::tick(&c.state, t0)
+        .await
+        .unwrap();
+    assert_eq!(runs(&start).await, 1);
+    crate::services::scheduler::tick(&c.state, now + D::minutes(11))
+        .await
+        .unwrap();
+    assert_eq!(runs(&before).await, 1);
+    crate::services::scheduler::tick(&c.state, now + D::minutes(12))
+        .await
+        .unwrap();
+    crate::services::scheduler::tick(&c.state, now + D::minutes(90))
+        .await
+        .unwrap();
+    assert_eq!(
+        (runs(&before).await, runs(&start).await),
+        (1, 1),
+        "each date fires once"
+    );
+
+    // Moving the date makes it fire again at the new moment.
+    c.ok(
+        "PATCH",
+        &format!("/cards/{a}"),
+        &w.owner,
+        Some(json!({"data": {"due_at": (now + D::minutes(200)).to_rfc3339()}})),
+    )
+    .await;
+    crate::services::scheduler::tick(&c.state, now + D::minutes(135))
+        .await
+        .unwrap();
+    assert_eq!(
+        runs(&before).await,
+        1,
+        "the new moment (200 - 60 = 140 minutes) is not reached yet"
+    );
+    crate::services::scheduler::tick(&c.state, now + D::minutes(145))
+        .await
+        .unwrap();
+    assert_eq!(runs(&before).await, 2, "the new date fired");
+
+    // Deleted cards do not fire.
+    let gone = card(
+        "Gone",
+        json!({"due_at": (now + D::minutes(400)).to_rfc3339()}),
+    )
+    .await;
+    c.ok("DELETE", &format!("/cards/{gone}"), &w.owner, None)
+        .await;
+    crate::services::scheduler::tick(&c.state, now + D::minutes(345))
+        .await
+        .unwrap();
+    crate::services::scheduler::tick(&c.state, now + D::minutes(350))
+        .await
+        .unwrap();
+    assert_eq!(runs(&before).await, 2);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+#[ignore = "needs DATABASE_URL"]
+async fn only_one_scheduler_works_at_a_time_and_downtime_catches_up_a_bounded_window(db: PgPool) {
+    use chrono::{Duration as D, Utc};
+    let c = Client::new(db.clone());
+    let w = world(&c).await;
+    let now = Utc::now();
+    let aid = id(&c
+        .ok("POST", &format!("/workspaces/{}/automations", w.ws), &w.owner, Some(json!({
+            "name": "Due", "is_enabled": true, "trigger_type": "date_arrives", "trigger_config": {},
+            "steps": [{"action_type": "create_comment", "config": {"content": "due"}}]
+        })))
+        .await);
+    let mk = |title: &str, due: chrono::DateTime<Utc>| {
+        let (c, owner, list, title) = (&c, w.owner.clone(), w.list.clone(), title.to_owned());
+        async move {
+            c.ok(
+                "POST",
+                &format!("/lists/{list}/cards"),
+                &owner,
+                Some(json!({"data": {"title": title, "due_at": due.to_rfc3339()}})),
+            )
+            .await
+        }
+    };
+    mk("recent", now + D::minutes(20)).await;
+    mk("ancient", now - D::days(2) + D::hours(5)).await; // 43 hours ago: outside the catch-up window
+
+    // While another instance holds the lock, a tick does nothing.
+    let mut other = db.acquire().await.unwrap();
+    sqlx::query("SELECT pg_advisory_lock($1)")
+        .bind(0x7767_6b5f_7363_6864_i64)
+        .execute(&mut *other)
+        .await
+        .unwrap();
+    crate::services::scheduler::tick(&c.state, now + D::minutes(30))
+        .await
+        .unwrap();
+    let runs = || async {
+        c.ok("GET", &format!("/automations/{aid}/runs"), &w.owner, None)
+            .await
+            .as_array()
+            .unwrap()
+            .len()
+    };
+    assert_eq!(runs().await, 0);
+    sqlx::query("SELECT pg_advisory_unlock($1)")
+        .bind(0x7767_6b5f_7363_6864_i64)
+        .execute(&mut *other)
+        .await
+        .unwrap();
+    drop(other);
+
+    // Seed the scheduler as if it had run 3 days ago, then wake it: only the last hour is caught up.
+    sqlx::query("INSERT INTO scheduler_state (job, last_run) VALUES ('date_triggers', $1)")
+        .bind(now - D::days(3))
+        .execute(&db)
+        .await
+        .unwrap();
+    crate::services::scheduler::tick(&c.state, now + D::minutes(30))
+        .await
+        .unwrap();
+    assert_eq!(
+        runs().await,
+        1,
+        "the recent card fired, the ancient one did not"
+    );
 }

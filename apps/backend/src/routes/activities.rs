@@ -12,13 +12,13 @@ use uuid::Uuid;
 
 use super::OkOut;
 use crate::{
-    auth::AuthUser,
-    authz::{
+    error::{ApiError, ApiResult},
+    security::auth::AuthUser,
+    security::authz::{
         is_project_member, require_card_role, require_role, require_workspace_role,
         visible_cards_sql, Role,
     },
-    error::{ApiError, ApiResult},
-    events::{emit, Event},
+    services::events::{emit, Event},
     state::AppState,
     util::clamp_page,
 };
@@ -100,6 +100,9 @@ async fn check_content(s: &AppState, project_id: Uuid, ty: &str, content: &Value
             );
             if !ok {
                 return Err(bad("comment needs `content`"));
+            }
+            if let Some(doc @ Value::Object(_)) = obj.get("content") {
+                crate::domain::rich::validate_doc(doc).map_err(|e| bad(format!("comment: {e}")))?;
             }
         }
         "task" => {
@@ -209,7 +212,7 @@ async fn writable_activity(
     s: &AppState,
     user: &AuthUser,
     activity_id: Uuid,
-) -> ApiResult<(Uuid, String, crate::authz::Scope)> {
+) -> ApiResult<(Uuid, String, crate::security::authz::Scope)> {
     let row: Option<(Uuid, String, Option<Uuid>)> =
         sqlx::query_as("SELECT card_id, type, created_by FROM card_activities WHERE id = $1")
             .bind(activity_id)

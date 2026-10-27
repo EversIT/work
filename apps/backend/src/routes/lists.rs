@@ -15,12 +15,12 @@ use super::{
     OkOut,
 };
 use crate::{
-    auth::AuthUser,
-    authz::{
-        is_project_member, require_list_role, require_space_role, require_workspace_role, Role,
-        Scope,
-    },
     error::{ApiError, ApiResult},
+    security::auth::AuthUser,
+    security::authz::{
+        is_project_member, list_access, require_list_role, require_space_role,
+        require_workspace_role, Role, Scope,
+    },
     state::AppState,
     util::{short, slugify},
 };
@@ -89,12 +89,15 @@ pub struct ListDetail {
     pub stages: Vec<StageOut>,
     pub views: Vec<ViewOut>,
     pub field_ids: Vec<Uuid>,
+    /// The caller's effective role on this list: `viewer`, `member`, `admin` or `owner`.
+    pub role: String,
 }
 
 const LIST_COLS: &str = "id, workspace_id, space_id, default_card_type_id, name, slug, icon, icon_color, type, access_type, methodology, created_at";
 const VIEW_COLS: &str = "id, list_id, name, type, options, filters, created_at, updated_at";
 
-async fn detail(s: &AppState, list: ListRow) -> ApiResult<ListDetail> {
+async fn detail(s: &AppState, user_id: Uuid, list: ListRow) -> ApiResult<ListDetail> {
+    let (_, role) = list_access(&s.db, user_id, list.id, Role::Viewer).await?;
     let stages = sqlx::query_as("SELECT id, list_id, name, color, sort_order, is_completed FROM list_stages WHERE list_id = $1 ORDER BY sort_order, name")
         .bind(list.id).fetch_all(&s.db).await?;
     let sql = format!("SELECT {VIEW_COLS} FROM views WHERE list_id = $1 ORDER BY created_at");
@@ -108,6 +111,7 @@ async fn detail(s: &AppState, list: ListRow) -> ApiResult<ListDetail> {
         stages,
         views,
         field_ids: fids.into_iter().map(|f| f.0).collect(),
+        role: role.as_str().to_owned(),
     })
 }
 
@@ -244,7 +248,7 @@ async fn create_list(
             .bind(id).bind(user.id).execute(&mut *tx).await?;
     }
     tx.commit().await?;
-    Ok(Json(detail(&s, list).await?))
+    Ok(Json(detail(&s, user.id, list).await?))
 }
 
 #[utoipa::path(get, operation_id = "getList", path = "/lists/{id}", tag = "lists",
@@ -257,7 +261,7 @@ async fn get_list(
     require_list_role(&s.db, user.id, id, Role::Viewer).await?;
     let sql = format!("SELECT {LIST_COLS} FROM lists WHERE id = $1");
     let list = sqlx::query_as(&sql).bind(id).fetch_one(&s.db).await?;
-    Ok(Json(detail(&s, list).await?))
+    Ok(Json(detail(&s, user.id, list).await?))
 }
 
 #[utoipa::path(get, operation_id = "getListBySlug", path = "/workspaces/{id}/lists/by-slug/{slug}", tag = "lists",
@@ -333,7 +337,7 @@ async fn update_list(
         .bind(b.default_card_type_id)
         .fetch_one(&s.db)
         .await?;
-    Ok(Json(detail(&s, list).await?))
+    Ok(Json(detail(&s, user.id, list).await?))
 }
 
 #[utoipa::path(delete, operation_id = "deleteList", path = "/lists/{id}", tag = "lists",
@@ -568,7 +572,7 @@ async fn create_group(
         }
     }
     if let Some(f) = &b.filter {
-        crate::filters::validate_json(f)?;
+        crate::domain::filters::validate_json(f)?;
     }
     let sql = format!("INSERT INTO list_groups (id, list_id, field_id, name, type, color, icon, sort_order, is_expanded, filter)
         VALUES ($1,$2,$3,$4,$5,$6,$7,(SELECT COALESCE(max(sort_order),-1)+1 FROM list_groups WHERE list_id = $2),$8,$9) RETURNING {GROUP_COLS}");
@@ -621,7 +625,7 @@ async fn update_group(
         short(n, 100, "name")?;
     }
     if let Some(f) = &b.filter {
-        crate::filters::validate_json(f)?;
+        crate::domain::filters::validate_json(f)?;
     }
     let sql = format!("UPDATE list_groups SET name = COALESCE($2,name), color = COALESCE($3,color), icon = COALESCE($4,icon), is_expanded = COALESCE($5,is_expanded), sort_order = COALESCE($6,sort_order), filter = COALESCE($7,filter) WHERE id = $1 RETURNING {GROUP_COLS}");
     let row = sqlx::query_as(&sql)
@@ -696,7 +700,7 @@ fn check_view(
         }
     }
     if let Some(f) = filters {
-        crate::filters::validate_json(f)?;
+        crate::domain::filters::validate_json(f)?;
     }
     Ok(())
 }
@@ -851,8 +855,12 @@ async fn put_list_grant(
     Path((id, target)): Path<(Uuid, Uuid)>,
     Json(b): Json<GrantBody>,
 ) -> ApiResult<Json<OkOut>> {
-    let scope = require_list_role(&s.db, user.id, id, Role::Admin).await?;
+    let (scope, caller) = list_access(&s.db, user.id, id, Role::Admin).await?;
     check_grant_role(&b.role)?;
+    // A list admin can hand out access to this list only, and never more than they have.
+    if Role::parse(&b.role).is_none_or(|r| r > caller) {
+        return Err(ApiError::Forbidden);
+    }
     if !is_project_member(&s.db, scope.project_id, target).await? {
         return Err(ApiError::BadRequest(
             "user is not a member of this project".into(),

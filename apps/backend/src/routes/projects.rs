@@ -1,4 +1,4 @@
-use super::OkOut;
+use super::{spaces::check_grant_role, OkOut};
 use axum::{
     extract::{Path, State},
     Json,
@@ -11,9 +11,9 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    auth::{hash_token, random_token, AuthUser},
-    authz::{require_role, Role},
     error::{ApiError, ApiResult},
+    security::auth::{hash_token, random_token, AuthUser},
+    security::authz::{list_access, require_membership, require_role, Role, Scope},
     state::AppState,
 };
 
@@ -24,6 +24,7 @@ pub fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(members))
         .routes(routes!(set_member_role, remove_member))
         .routes(routes!(create_invite))
+        .routes(routes!(create_list_invite))
         .routes(routes!(accept_invite))
 }
 
@@ -116,6 +117,8 @@ struct MemberOut {
     last_name: String,
     email: String,
     role: String,
+    /// Limited access: sees only the lists and spaces they were explicitly added to.
+    restricted: bool,
 }
 
 #[utoipa::path(operation_id="listProjectMembers", get, path="/projects/{id}/members", tag="projects", params(("id"=Uuid,Path)), responses((status=200, body=Vec<MemberOut>), (status=404)), security(("bearer" = [])))]
@@ -124,32 +127,55 @@ async fn members(
     user: AuthUser,
     Path(id): Path<Uuid>,
 ) -> ApiResult<Json<Vec<MemberOut>>> {
-    require_role(&s.db, user.id, id, Role::Viewer).await?;
-    let rows = sqlx::query_as(
-        "SELECT u.id AS user_id, u.first_name, u.last_name, u.email::text AS email, m.role
+    let (_, restricted) = require_membership(&s.db, user.id, id, Role::Viewer).await?;
+    // A restricted caller sees themselves, the project's admins and the people who share a list
+    // with them (directly or through a space grant), not the whole organisation.
+    let sql = format!(
+        "SELECT u.id AS user_id, u.first_name, u.last_name, u.email::text AS email, m.role, m.restricted
          FROM project_members m JOIN users u ON u.id = m.user_id
-         WHERE m.project_id = $1 AND u.deleted_at IS NULL ORDER BY u.first_name",
-    )
-    .bind(id)
-    .fetch_all(&s.db)
-    .await?;
+         WHERE m.project_id = $1 AND u.deleted_at IS NULL
+           AND (NOT $2 OR m.user_id = $3 OR m.role IN ('admin','owner') OR EXISTS (
+                SELECT 1 FROM ({mine}) a JOIN ({theirs}) b ON a.id = b.id))
+         ORDER BY u.first_name",
+        mine = reachable_lists("$3"),
+        theirs = reachable_lists("m.user_id"),
+    );
+    let rows = sqlx::query_as(&sql)
+        .bind(id)
+        .bind(restricted)
+        .bind(user.id)
+        .fetch_all(&s.db)
+        .await?;
     Ok(Json(rows))
 }
 
-async fn member_role(s: &AppState, project: Uuid, user: Uuid) -> ApiResult<Role> {
-    let row: Option<(String,)> =
-        sqlx::query_as("SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2")
-            .bind(project)
-            .bind(user)
-            .fetch_optional(&s.db)
-            .await?;
-    row.and_then(|(r,)| Role::parse(&r))
+/// SQL for the ids of the lists a user holds a grant on, directly or through their space.
+fn reachable_lists(user: &str) -> String {
+    format!(
+        "SELECT g.resource_id AS id FROM resource_grants g WHERE g.user_id = {user} AND g.resource_type = 'list'
+         UNION SELECT l.id FROM resource_grants g JOIN lists l ON l.space_id = g.resource_id AND l.deleted_at IS NULL
+         WHERE g.user_id = {user} AND g.resource_type = 'space'"
+    )
+}
+
+async fn member_role(s: &AppState, project: Uuid, user: Uuid) -> ApiResult<(Role, bool)> {
+    let row: Option<(String, bool)> = sqlx::query_as(
+        "SELECT role, restricted FROM project_members WHERE project_id = $1 AND user_id = $2",
+    )
+    .bind(project)
+    .bind(user)
+    .fetch_optional(&s.db)
+    .await?;
+    row.and_then(|(r, restricted)| Role::parse(&r).map(|r| (r, restricted)))
         .ok_or(ApiError::NotFound)
 }
 
 #[derive(Deserialize, ToSchema)]
 struct RoleBody {
-    role: String,
+    /// New project role. Granting `member` or higher ends limited access.
+    role: Option<String>,
+    /// Limit the member to the lists and spaces they hold a grant on. Needs the role `viewer`.
+    restricted: Option<bool>,
 }
 
 /// Rule: you can only manage members ranked strictly below you, and only grant roles
@@ -162,16 +188,33 @@ async fn set_member_role(
     Json(b): Json<RoleBody>,
 ) -> ApiResult<Json<OkOut>> {
     let actor = require_role(&s.db, user.id, id, Role::Admin).await?;
-    let new_role =
-        Role::parse(&b.role).ok_or_else(|| ApiError::BadRequest("unknown role".into()))?;
-    let current = member_role(&s, id, target).await?;
-    if current >= actor || new_role >= actor {
+    let requested = match &b.role {
+        Some(r) => Some(Role::parse(r).ok_or_else(|| ApiError::BadRequest("unknown role".into()))?),
+        None => None,
+    };
+    if requested.is_none() && b.restricted.is_none() {
+        return Err(ApiError::BadRequest("nothing to change".into()));
+    }
+    let (current, was_restricted) = member_role(&s, id, target).await?;
+    if current >= actor || requested.is_some_and(|r| r >= actor) {
         return Err(ApiError::Forbidden);
     }
-    sqlx::query("UPDATE project_members SET role = $3 WHERE project_id = $1 AND user_id = $2")
+    let new_role = requested.unwrap_or(current);
+    // Only a viewer can have limited access; a higher role ends it.
+    let restricted = match b.restricted {
+        Some(r) => r,
+        None => was_restricted && new_role == Role::Viewer,
+    };
+    if restricted && new_role != Role::Viewer {
+        return Err(ApiError::BadRequest(
+            "limited access needs the viewer role".into(),
+        ));
+    }
+    sqlx::query("UPDATE project_members SET role = $3, restricted = $4 WHERE project_id = $1 AND user_id = $2")
         .bind(id)
         .bind(target)
         .bind(new_role.as_str())
+        .bind(restricted)
         .execute(&s.db)
         .await?;
     Ok(Json(OkOut { ok: true }))
@@ -184,7 +227,7 @@ async fn remove_member(
     Path((id, target)): Path<(Uuid, Uuid)>,
 ) -> ApiResult<Json<OkOut>> {
     let actor = require_role(&s.db, user.id, id, Role::Viewer).await?;
-    let current = member_role(&s, id, target).await?;
+    let (current, _) = member_role(&s, id, target).await?;
     if current == Role::Owner {
         return Err(ApiError::Forbidden); // an owner cannot be removed or leave: transfer/delete first
     }
@@ -192,11 +235,23 @@ async fn remove_member(
     if !allowed {
         return Err(ApiError::Forbidden);
     }
+    let mut tx = s.db.begin().await?;
     sqlx::query("DELETE FROM project_members WHERE project_id = $1 AND user_id = $2")
         .bind(id)
         .bind(target)
-        .execute(&s.db)
+        .execute(&mut *tx)
         .await?;
+    // Grants must not outlive the membership: they would revive if the person is added again.
+    sqlx::query(
+        "DELETE FROM resource_grants g WHERE g.user_id = $2 AND (
+           (g.resource_type = 'list' AND g.resource_id IN (SELECT l.id FROM lists l JOIN workspaces w ON w.id = l.workspace_id WHERE w.project_id = $1))
+        OR (g.resource_type = 'space' AND g.resource_id IN (SELECT sp.id FROM spaces sp JOIN workspaces w ON w.id = sp.workspace_id WHERE w.project_id = $1)))",
+    )
+    .bind(id)
+    .bind(target)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
     Ok(Json(OkOut { ok: true }))
 }
 
@@ -234,6 +289,51 @@ async fn create_invite(
     if role >= actor {
         return Err(ApiError::Forbidden);
     }
+    store_invite(&s, user.id, id, None, role, &b)
+        .await
+        .map(Json)
+}
+
+/// Invites to a single list: whoever accepts becomes a limited-access member of the project (or
+/// keeps their membership) and is granted `role` on this list only.
+#[utoipa::path(operation_id="createListInvite", post, path="/lists/{id}/invites", tag="lists", params(("id"=Uuid,Path)), request_body = InviteBody, responses((status=200, body=InviteOut), (status=400), (status=403), (status=404)), security(("bearer" = [])))]
+async fn create_list_invite(
+    State(s): State<AppState>,
+    user: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(b): Json<InviteBody>,
+) -> ApiResult<Json<InviteOut>> {
+    let (scope, role) = list_invite_role(&s, user.id, id, &b.role).await?;
+    store_invite(&s, user.id, scope.project_id, Some(id), role, &b)
+        .await
+        .map(Json)
+}
+
+/// Checks that the caller administers the list and may hand out `wanted` on it (never more than
+/// their own role there). Shared with the e-mail invite.
+pub(super) async fn list_invite_role(
+    s: &AppState,
+    user: Uuid,
+    list: Uuid,
+    wanted: &str,
+) -> ApiResult<(Scope, Role)> {
+    let (scope, caller) = list_access(&s.db, user, list, Role::Admin).await?;
+    check_grant_role(wanted)?;
+    let role = Role::parse(wanted).ok_or_else(|| ApiError::BadRequest("unknown role".into()))?;
+    if role > caller {
+        return Err(ApiError::Forbidden);
+    }
+    Ok((scope, role))
+}
+
+async fn store_invite(
+    s: &AppState,
+    user: Uuid,
+    project_id: Uuid,
+    list_id: Option<Uuid>,
+    role: Role,
+    b: &InviteBody,
+) -> ApiResult<InviteOut> {
     if !(1..=24 * 30).contains(&b.expires_in_hours) || !(1..=100).contains(&b.max_uses) {
         return Err(ApiError::BadRequest(
             "expires_in_hours 1-720, max_uses 1-100".into(),
@@ -242,24 +342,28 @@ async fn create_invite(
     let token = random_token();
     let expires_at = Utc::now() + Duration::hours(b.expires_in_hours);
     sqlx::query(
-        "INSERT INTO invites (id, project_id, token_hash, role, expires_at, max_uses, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)",
+        "INSERT INTO invites (id, project_id, list_id, token_hash, role, expires_at, max_uses, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
     )
     .bind(Uuid::new_v4())
-    .bind(id)
+    .bind(project_id)
+    .bind(list_id)
     .bind(hash_token(&token))
     .bind(role.as_str())
     .bind(expires_at)
     .bind(b.max_uses)
-    .bind(user.id)
+    .bind(user)
     .execute(&s.db)
     .await?;
-    Ok(Json(InviteOut { token, expires_at }))
+    Ok(InviteOut { token, expires_at })
 }
 
 #[derive(Serialize, ToSchema)]
 struct AcceptOut {
     project_id: Uuid,
+    /// Set for list invites, so the client can open the list afterwards.
+    workspace_id: Option<Uuid>,
+    list_slug: Option<String>,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -274,31 +378,74 @@ async fn accept_invite(
     Json(b): Json<AcceptBody>,
 ) -> ApiResult<Json<AcceptOut>> {
     // Guessing is infeasible (256-bit secrets) but cap attempts per user anyway.
-    if !s.auth_limiter.check(&format!("invite:{}", user.id)) {
+    if !s.auth_limiter.check(&format!("invite:{}", user.id)).await {
         return Err(ApiError::TooManyRequests);
     }
     let mut tx = s.db.begin().await?;
     // Atomic claim: expiry and use-count are checked and consumed in one statement.
-    let claimed: Option<(Uuid, String)> = sqlx::query_as(
+    let claimed: Option<(Uuid, String, Option<Uuid>)> = sqlx::query_as(
         "UPDATE invites SET uses = uses + 1
          WHERE token_hash = $1 AND expires_at > now() AND uses < max_uses
            AND (email IS NULL OR email = (SELECT u.email FROM users u WHERE u.id = $2))
-         RETURNING project_id, role",
+         RETURNING project_id, role, list_id",
     )
     .bind(hash_token(&b.token))
     .bind(user.id)
     .fetch_optional(&mut *tx)
     .await?;
-    let (project_id, role) = claimed.ok_or(ApiError::NotFound)?; // generic: unknown/expired/used up
-    sqlx::query(
-        "INSERT INTO project_members (project_id, user_id, role) VALUES ($1,$2,$3)
-         ON CONFLICT (project_id, user_id) DO NOTHING",
-    )
-    .bind(project_id)
-    .bind(user.id)
-    .bind(role)
-    .execute(&mut *tx)
-    .await?;
+    let (project_id, role, list_id) = claimed.ok_or(ApiError::NotFound)?; // generic: unknown/expired/used up
+    let mut target = (None, None);
+    match list_id {
+        None => {
+            // A project invite also lifts limited access, keeping the higher of both roles.
+            sqlx::query(
+                "INSERT INTO project_members (project_id, user_id, role) VALUES ($1,$2,$3)
+                 ON CONFLICT (project_id, user_id) DO UPDATE SET restricted = false,
+                   role = CASE WHEN EXCLUDED.role = 'viewer' THEN project_members.role ELSE EXCLUDED.role END
+                 WHERE project_members.restricted",
+            )
+            .bind(project_id)
+            .bind(user.id)
+            .bind(role)
+            .execute(&mut *tx)
+            .await?;
+        }
+        Some(list_id) => {
+            // The list may have been deleted since the invite was written.
+            let list: Option<(Uuid, String)> = sqlx::query_as(
+                "SELECT workspace_id, slug FROM lists WHERE id = $1 AND deleted_at IS NULL",
+            )
+            .bind(list_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+            let (workspace_id, slug) = list.ok_or(ApiError::NotFound)?;
+            // New people get limited access; existing members keep whatever they have.
+            sqlx::query(
+                "INSERT INTO project_members (project_id, user_id, role, restricted) VALUES ($1,$2,'viewer',true)
+                 ON CONFLICT (project_id, user_id) DO NOTHING",
+            )
+            .bind(project_id)
+            .bind(user.id)
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query(
+                "INSERT INTO resource_grants (resource_type, resource_id, user_id, role) VALUES ('list',$1,$2,$3)
+                 ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE SET role = EXCLUDED.role
+                 WHERE array_position(ARRAY['viewer','member','admin'], EXCLUDED.role)
+                     > array_position(ARRAY['viewer','member','admin'], resource_grants.role)",
+            )
+            .bind(list_id)
+            .bind(user.id)
+            .bind(role)
+            .execute(&mut *tx)
+            .await?;
+            target = (Some(workspace_id), Some(slug));
+        }
+    }
     tx.commit().await?;
-    Ok(Json(AcceptOut { project_id }))
+    Ok(Json(AcceptOut {
+        project_id,
+        workspace_id: target.0,
+        list_slug: target.1,
+    }))
 }

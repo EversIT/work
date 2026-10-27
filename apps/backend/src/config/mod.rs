@@ -1,7 +1,16 @@
 //! Configuration is read from the environment only. No secret has a default value:
 //! a missing or weak secret stops the server at startup.
 
+mod sso;
+pub mod storage;
+
 use std::{env, net::SocketAddr};
+
+use self::{sso::sso_from_env, storage::storage_from_env};
+pub use self::{
+    sso::{OAuthProvider, OidcMeta, OidcSettings, SamlConfig, SsoConfig},
+    storage::StorageConfig,
+};
 
 #[derive(Clone)]
 pub struct Config {
@@ -27,6 +36,20 @@ pub struct Config {
     pub allow_external_email: bool,
     /// Sign-in, registration and similar attempts allowed per source address and minute.
     pub auth_rate_limit: u32,
+    /// Keep rate-limit counters in Postgres so several instances share one budget.
+    pub shared_rate_limit: bool,
+    /// New accounts must confirm their e-mail address before they exist. Needs SMTP; on by default
+    /// whenever SMTP is configured.
+    pub require_email_verification: bool,
+    /// Sign in with Google, GitHub, Microsoft, Slack or a SAML identity provider.
+    pub sso: SsoConfig,
+    pub storage: StorageConfig,
+    /// Run the background scheduler (date-based automations) in this process. Safe on several
+    /// instances at once; switch it off on instances that should not do background work.
+    pub scheduler: bool,
+    /// Passkeys are bound to this domain (default: the host of `WORK_FRONTEND_URL`). May name a
+    /// parent domain so one passkey works across subdomains.
+    pub webauthn_rp_id: Option<String>,
 }
 
 #[derive(Clone)]
@@ -61,7 +84,7 @@ fn required(name: &'static str) -> Result<String, ConfigError> {
     }
 }
 
-fn flag(name: &str) -> bool {
+pub(super) fn flag(name: &str) -> bool {
     env::var(name).map(|v| v == "true").unwrap_or(false)
 }
 
@@ -157,6 +180,34 @@ impl Config {
             _ => None,
         };
 
+        let shared_rate_limit = match env::var("WORK_RATE_LIMIT_BACKEND").as_deref() {
+            Ok("postgres") => true,
+            Ok("memory") | Err(_) => false,
+            Ok(other) => {
+                return Err(ConfigError::Invalid(format!(
+                    "WORK_RATE_LIMIT_BACKEND must be memory or postgres, got {other}"
+                )))
+            }
+        };
+        let require_email_verification =
+            match env::var("WORK_REQUIRE_EMAIL_VERIFICATION").as_deref() {
+                Ok("true") => true,
+                Ok("false") => false,
+                Err(_) | Ok("") => smtp.is_some(),
+                Ok(other) => {
+                    return Err(ConfigError::Invalid(format!(
+                        "WORK_REQUIRE_EMAIL_VERIFICATION must be true or false, got {other}"
+                    )))
+                }
+            };
+        if require_email_verification && smtp.is_none() {
+            return Err(ConfigError::Invalid(
+                "WORK_REQUIRE_EMAIL_VERIFICATION=true needs WORK_SMTP_HOST (nothing could send the link)".into(),
+            ));
+        }
+
+        let sso = sso_from_env(&frontend_url)?;
+
         Ok(Self {
             database_url: required("WORK_DATABASE_URL")?,
             jwt_secret,
@@ -172,7 +223,56 @@ impl Config {
             webhook_allow_private: flag("WORK_WEBHOOK_ALLOW_PRIVATE"),
             webhook_allow_http: flag("WORK_WEBHOOK_ALLOW_HTTP"),
             allow_external_email: flag("WORK_ALLOW_EXTERNAL_EMAIL"),
-            auth_rate_limit: env::var("WORK_AUTH_RATE_LIMIT").ok().and_then(|v| v.parse().ok()).filter(|n| *n >= 1).unwrap_or(10),
+            auth_rate_limit: env::var("WORK_AUTH_RATE_LIMIT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .filter(|n| *n >= 1)
+                .unwrap_or(10),
+            shared_rate_limit,
+            require_email_verification,
+            sso,
+            storage: storage_from_env()?,
+            scheduler: env::var("WORK_SCHEDULER")
+                .map(|v| v != "false")
+                .unwrap_or(true),
+            webauthn_rp_id: env::var("WORK_WEBAUTHN_RP_ID")
+                .ok()
+                .map(|v| v.trim().to_lowercase())
+                .filter(|v| !v.is_empty()),
         })
+    }
+}
+
+#[cfg(test)]
+impl Config {
+    /// A complete configuration for tests: nothing optional is switched on, limits are generous
+    /// and webhooks may reach local receivers. Tests change what they need.
+    pub fn for_tests() -> Self {
+        Self {
+            database_url: String::new(),
+            jwt_secret: b"test-only-secret-test-only-secret-0123".to_vec(),
+            frontend_url: "https://example.test".into(),
+            bind_addr: "127.0.0.1:0".parse().expect("valid address"),
+            registration_enabled: true,
+            trust_forwarded_for: true,
+            upload_dir: std::env::temp_dir()
+                .join("work-test-uploads")
+                .to_string_lossy()
+                .into_owned(),
+            max_upload_bytes: 1024 * 1024,
+            smtp: None,
+            encryption_key: None,
+            slack: None,
+            webhook_allow_private: true,
+            webhook_allow_http: true,
+            allow_external_email: false,
+            auth_rate_limit: 1000,
+            shared_rate_limit: false,
+            require_email_verification: false,
+            sso: Default::default(),
+            storage: Default::default(),
+            scheduler: false,
+            webauthn_rp_id: None,
+        }
     }
 }

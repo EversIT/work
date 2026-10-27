@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use sqlx::Row;
 use uuid::Uuid;
 
-use crate::{events::Event, mailer, state::AppState};
+use crate::{services::events::Event, services::mailer, state::AppState};
 
 pub struct NewNotification {
     pub recipient: Uuid,
@@ -83,7 +83,7 @@ pub async fn create(s: &AppState, n: NewNotification) -> Result<(), sqlx::Error>
     }
     if matches!(n.kind, "mention" | "assigned" | "comment" | "stage_updated") {
         if let Some(card) = n.card_id {
-            crate::integrations::notify_slack(
+            crate::services::integrations::notify_slack(
                 s,
                 n.recipient,
                 &n.message,
@@ -139,9 +139,14 @@ async fn watchers_of(s: &AppState, card_id: Uuid) -> Result<Vec<Uuid>, sqlx::Err
 
 /// Only people who can still see the card get told about it.
 async fn can_see(s: &AppState, user: Uuid, card_id: Uuid) -> bool {
-    crate::authz::require_card_role(&s.db, user, card_id, crate::authz::Role::Viewer)
-        .await
-        .is_ok()
+    crate::security::authz::require_card_role(
+        &s.db,
+        user,
+        card_id,
+        crate::security::authz::Role::Viewer,
+    )
+    .await
+    .is_ok()
 }
 
 pub async fn handle_event(s: &AppState, event: &Event) -> Result<(), sqlx::Error> {

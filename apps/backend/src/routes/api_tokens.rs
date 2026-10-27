@@ -10,8 +10,8 @@ use uuid::Uuid;
 
 use super::OkOut;
 use crate::{
-    auth::{hash_token, new_api_token, AuthUser},
     error::{ApiError, ApiResult},
+    security::auth::{hash_token, new_api_token, AuthUser},
     state::AppState,
     util::short,
 };

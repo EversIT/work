@@ -10,9 +10,9 @@ use uuid::Uuid;
 
 use super::OkOut;
 use crate::{
-    auth::AuthUser,
-    authz::{require_role, require_space_role, require_workspace_role, Role},
     error::{ApiError, ApiResult},
+    security::auth::AuthUser,
+    security::authz::{require_membership, require_space_role, require_workspace_role, Role},
     state::AppState,
     util::short,
 };
@@ -72,26 +72,30 @@ async fn tree(
     Path(wid): Path<Uuid>,
 ) -> ApiResult<Json<TreeOut>> {
     let project_id = require_workspace_role(&s.db, user.id, wid, Role::Viewer).await?;
-    let role = require_role(&s.db, user.id, project_id, Role::Viewer).await?;
+    let (role, restricted) = require_membership(&s.db, user.id, project_id, Role::Viewer).await?;
     let admin = role >= Role::Admin;
 
     let spaces: Vec<SpaceOut> = sqlx::query_as(
         "SELECT s.id, s.workspace_id, s.name, s.icon, s.icon_color, s.access_type, s.created_at
          FROM spaces s WHERE s.workspace_id = $1 AND s.deleted_at IS NULL
-           AND ($2 OR s.access_type = 'public' OR EXISTS (
-                SELECT 1 FROM resource_grants g WHERE g.user_id = $3 AND g.resource_type = 'space' AND g.resource_id = s.id))
+           AND ($2 OR (NOT $4 AND s.access_type = 'public') OR EXISTS (
+                SELECT 1 FROM resource_grants g WHERE g.user_id = $3 AND g.resource_type = 'space' AND g.resource_id = s.id)
+                -- a list grant shows its space as the container, but nothing else in it
+                OR EXISTS (SELECT 1 FROM resource_grants g JOIN lists gl ON gl.id = g.resource_id AND gl.deleted_at IS NULL
+                           WHERE g.user_id = $3 AND g.resource_type = 'list' AND gl.space_id = s.id))
          ORDER BY s.created_at",
     )
     .bind(wid)
     .bind(admin)
     .bind(user.id)
+    .bind(restricted)
     .fetch_all(&s.db)
     .await?;
     let ids: Vec<Uuid> = spaces.iter().map(|s| s.id).collect();
     let lists: Vec<ListBrief> = sqlx::query_as(
         "SELECT l.id, l.space_id, l.name, l.slug, l.icon, l.icon_color, l.type, l.access_type, l.methodology
          FROM lists l WHERE l.space_id = ANY($1) AND l.deleted_at IS NULL
-           AND ($2 OR l.access_type = 'public'
+           AND ($2 OR (NOT $4 AND l.access_type = 'public')
                 OR EXISTS (SELECT 1 FROM resource_grants g WHERE g.user_id = $3 AND
                            ((g.resource_type = 'list' AND g.resource_id = l.id) OR (g.resource_type = 'space' AND g.resource_id = l.space_id))))
          ORDER BY l.created_at",
@@ -99,6 +103,7 @@ async fn tree(
     .bind(&ids)
     .bind(admin)
     .bind(user.id)
+    .bind(restricted)
     .fetch_all(&s.db)
     .await?;
     let spaces = spaces
@@ -303,7 +308,7 @@ async fn put_space_grant(
     let scope = require_space_role(&s.db, user.id, id, Role::Admin).await?;
     check_grant_role(&b.role)?;
     // Only members of the owning project can be granted access.
-    if !crate::authz::is_project_member(&s.db, scope.project_id, target).await? {
+    if !crate::security::authz::is_project_member(&s.db, scope.project_id, target).await? {
         return Err(ApiError::BadRequest(
             "user is not a member of this project".into(),
         ));

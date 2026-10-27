@@ -14,12 +14,13 @@ use utoipa::ToSchema;
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
-use super::OkOut;
+use super::{projects::list_invite_role, OkOut};
 use crate::{
-    auth::{hash_password, hash_token, random_token, AuthUser, MAX_PASSWORD_LEN, MIN_PASSWORD_LEN},
-    authz::{require_role, Role},
     error::{ApiError, ApiResult},
-    mailer,
+    security::auth::{hash_password, hash_token, random_token, AuthUser},
+    security::authz::{require_role, Role},
+    security::policy::check_password,
+    services::mailer,
     state::AppState,
 };
 
@@ -29,6 +30,7 @@ pub fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(request_password_reset))
         .routes(routes!(confirm_password_reset))
         .routes(routes!(invite_by_email))
+        .routes(routes!(invite_to_list_by_email))
 }
 
 #[derive(Serialize, ToSchema)]
@@ -37,6 +39,17 @@ pub struct SystemInfo {
     /// Outgoing e-mail is configured (password reset, invitations, notifications by e-mail).
     pub mail_enabled: bool,
     pub slack_enabled: bool,
+    /// Two-factor authentication can be enabled (needs `WORK_ENCRYPTION_KEY`).
+    pub mfa_available: bool,
+    /// Sign-up needs a confirmed e-mail address.
+    pub email_verification_required: bool,
+    /// Single sign-on providers configured on this instance (`google`, `github`, `microsoft`,
+    /// `slack`, `saml`).
+    pub sso_providers: Vec<String>,
+    /// Label for the `oidc` provider, e.g. the name of the company's identity provider.
+    pub sso_oidc_name: Option<String>,
+    /// Passkeys can be used (they need the page to be served over https, or localhost).
+    pub passkeys_available: bool,
 }
 
 /// Public, non-sensitive facts the sign-in pages need.
@@ -46,6 +59,12 @@ async fn system_info(State(s): State<AppState>) -> Json<SystemInfo> {
         registration_enabled: s.config.registration_enabled,
         mail_enabled: mailer::enabled(&s),
         slack_enabled: s.config.slack.is_some(),
+        mfa_available: s.config.encryption_key.is_some(),
+        email_verification_required: s.config.require_email_verification,
+        sso_providers: s.config.sso.names(),
+        sso_oidc_name: s.config.sso.oidc_name(),
+        passkeys_available: s.config.frontend_url.starts_with("https://")
+            || s.config.frontend_url.starts_with("http://localhost"),
     })
 }
 
@@ -82,6 +101,7 @@ async fn request_password_reset(
     if !s
         .auth_limiter
         .check(&format!("reset-ip:{}", client_ip(&s, &headers, peer)))
+        .await
     {
         return Err(ApiError::TooManyRequests);
     }
@@ -89,7 +109,7 @@ async fn request_password_reset(
     if email.len() > 254 || !email.contains('@') {
         return Ok(Json(OkOut { ok: true })); // same answer for junk input
     }
-    if !s.reset_limiter.check(&format!("reset:{email}")) {
+    if !s.reset_limiter.check(&format!("reset:{email}")).await {
         return Ok(Json(OkOut { ok: true })); // silently capped; no signal to an attacker
     }
     let user: Option<(Uuid, String)> =
@@ -143,15 +163,21 @@ async fn confirm_password_reset(
     if !s
         .auth_limiter
         .check(&format!("reset-confirm:{}", client_ip(&s, &headers, peer)))
+        .await
     {
         return Err(ApiError::TooManyRequests);
     }
-    let n = b.new_password.chars().count();
-    if !(MIN_PASSWORD_LEN..=MAX_PASSWORD_LEN).contains(&n) {
-        return Err(ApiError::BadRequest(format!(
-            "password must be {MIN_PASSWORD_LEN}-{MAX_PASSWORD_LEN} characters"
-        )));
-    }
+    // Look the account up without consuming the link, so a rejected password does not burn it.
+    let account: Option<(String, String, String)> = sqlx::query_as(
+        "SELECT u.email::text, u.first_name, u.last_name FROM password_resets r JOIN users u ON u.id = r.user_id
+         WHERE r.token_hash = $1 AND r.used_at IS NULL AND r.expires_at > now() AND u.deleted_at IS NULL",
+    )
+    .bind(hash_token(&b.token))
+    .fetch_optional(&s.db)
+    .await?;
+    let (email, first, last) = account
+        .ok_or_else(|| ApiError::BadRequest("this reset link is invalid or has expired".into()))?;
+    check_password(&b.new_password, &[&email, &first, &last])?;
     let new = b.new_password.clone();
     let hash = tokio::task::spawn_blocking(move || hash_password(&new))
         .await
@@ -166,7 +192,8 @@ async fn confirm_password_reset(
     .await?;
     let (user_id,) = redeemed
         .ok_or_else(|| ApiError::BadRequest("this reset link is invalid or has expired".into()))?;
-    sqlx::query("UPDATE users SET password_hash = $2 WHERE id = $1 AND deleted_at IS NULL")
+    // Proof of the mailbox also ends a lock-out; MFA stays required.
+    sqlx::query("UPDATE users SET password_hash = $2, failed_logins = 0, locked_until = NULL WHERE id = $1 AND deleted_at IS NULL")
         .bind(user_id)
         .bind(hash)
         .execute(&mut *tx)
@@ -206,36 +233,74 @@ async fn invite_by_email(
     if role >= actor {
         return Err(ApiError::Forbidden);
     }
-    let email = b.email.trim().to_lowercase();
+    send_invite(&s, user.id, project_id, None, role, &b.email).await
+}
+
+/// Like the project invitation, but for one list: the invited address becomes a limited-access
+/// member that only sees this list (existing members just get access to it).
+#[utoipa::path(post, operation_id = "inviteToListByEmail", path = "/lists/{id}/invites/email", tag = "lists",
+    params(("id" = Uuid, Path)), request_body = EmailInvite,
+    responses((status = 200, body = EmailInviteOut), (status = 400), (status = 403), (status = 404), (status = 409), (status = 429)), security(("bearer" = [])))]
+async fn invite_to_list_by_email(
+    State(s): State<AppState>,
+    user: AuthUser,
+    Path(list_id): Path<Uuid>,
+    Json(b): Json<EmailInvite>,
+) -> ApiResult<Json<EmailInviteOut>> {
+    let (scope, role) = list_invite_role(&s, user.id, list_id, &b.role).await?;
+    send_invite(&s, user.id, scope.project_id, Some(list_id), role, &b.email).await
+}
+
+async fn send_invite(
+    s: &AppState,
+    user_id: Uuid,
+    project_id: Uuid,
+    list_id: Option<Uuid>,
+    role: Role,
+    email: &str,
+) -> ApiResult<Json<EmailInviteOut>> {
+    let email = email.trim().to_lowercase();
     if email.len() > 254 || !email.contains('@') || email.contains(char::is_whitespace) {
         return Err(ApiError::BadRequest("invalid e-mail address".into()));
     }
-    if !mailer::enabled(&s) {
+    if !mailer::enabled(s) {
         return Err(ApiError::Conflict); // nothing to send with: use an invite link instead
     }
-    if !s.email_limiter.check(&format!("invite:{}", user.id)) {
+    if !s.email_limiter.check(&format!("invite:{user_id}")).await {
         return Err(ApiError::TooManyRequests);
     }
     let (project_name,): (String,) = sqlx::query_as("SELECT name FROM projects WHERE id = $1")
         .bind(project_id)
         .fetch_one(&s.db)
         .await?;
+    // What the invitation is for: the project, or one list of it.
+    let target = match list_id {
+        Some(l) => {
+            let (list_name,): (String,) = sqlx::query_as("SELECT name FROM lists WHERE id = $1")
+                .bind(l)
+                .fetch_one(&s.db)
+                .await?;
+            list_name
+        }
+        None => project_name,
+    };
     let (inviter,): (String,) =
         sqlx::query_as("SELECT first_name || ' ' || last_name FROM users WHERE id = $1")
-            .bind(user.id)
+            .bind(user_id)
             .fetch_one(&s.db)
             .await?;
     let token = random_token();
     let expires_at = Utc::now() + Duration::days(7);
     sqlx::query(
-        "INSERT INTO invites (id, project_id, token_hash, role, expires_at, max_uses, created_by, email) VALUES ($1,$2,$3,$4,$5,1,$6,$7)",
+        "INSERT INTO invites (id, project_id, list_id, token_hash, role, expires_at, max_uses, created_by, email) VALUES ($1,$2,$3,$4,$5,$6,1,$7,$8)",
     )
     .bind(Uuid::new_v4())
     .bind(project_id)
+    .bind(list_id)
     .bind(hash_token(&token))
     .bind(role.as_str())
     .bind(expires_at)
-    .bind(user.id)
+    .bind(user_id)
     .bind(&email)
     .execute(&s.db)
     .await?;
@@ -243,16 +308,11 @@ async fn invite_by_email(
     let html = format!(
         "<p>{} invited you to join <b>{}</b> on work as {}.</p><p><a href=\"{}\">Accept the invitation</a></p><p>The link works once, for this e-mail address, and expires on {}.</p>",
         mailer::escape_html(&inviter),
-        mailer::escape_html(&project_name),
+        mailer::escape_html(&target),
         role.as_str(),
         mailer::escape_html(&link),
         expires_at.format("%Y-%m-%d")
     );
-    mailer::send(
-        &s,
-        email,
-        format!("{inviter} invited you to {project_name}"),
-        html,
-    );
+    mailer::send(s, email, format!("{inviter} invited you to {target}"), html);
     Ok(Json(EmailInviteOut { expires_at }))
 }

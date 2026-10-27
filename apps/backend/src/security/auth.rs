@@ -30,7 +30,23 @@ pub fn hash_password(password: &str) -> Result<String, ApiError> {
         .map_err(|e| ApiError::Internal(Box::new(std::io::Error::other(e.to_string()))))
 }
 
+/// Hashes from a migrated upstream database are bcrypt. They verify, and `needs_rehash` tells the
+/// sign-in to replace them with Argon2id right after a successful check.
+fn is_bcrypt(hash: &str) -> bool {
+    ["$2a$", "$2b$", "$2x$", "$2y$"]
+        .iter()
+        .any(|p| hash.starts_with(p))
+}
+
+pub fn needs_rehash(hash: &str) -> bool {
+    is_bcrypt(hash)
+}
+
 pub fn verify_password(password: &str, hash: &str) -> bool {
+    if is_bcrypt(hash) {
+        // bcrypt only looks at the first 72 bytes; that is its own property, kept as it was.
+        return bcrypt::verify(password, hash).unwrap_or(false);
+    }
     match PasswordHash::new(hash) {
         Ok(parsed) => Argon2::default()
             .verify_password(password.as_bytes(), &parsed)
@@ -131,7 +147,7 @@ async fn authenticate_token(
     let row: Option<(Uuid, Uuid, String, String)> = sqlx::query_as(
         "SELECT t.id, t.user_id, t.scope, u.email::text FROM api_tokens t JOIN users u ON u.id = t.user_id
          WHERE t.token_hash = $1 AND t.revoked_at IS NULL AND (t.expires_at IS NULL OR t.expires_at > now())
-           AND u.deleted_at IS NULL",
+           AND u.deleted_at IS NULL AND u.disabled_at IS NULL",
     )
     .bind(hash_token(token))
     .fetch_optional(&state.db)
@@ -143,7 +159,7 @@ async fn authenticate_token(
             return Err(ApiError::Unauthorized);
         }
     }
-    if !state.api_limiter.check(&token_id.to_string()) {
+    if !state.api_limiter.check(&token_id.to_string()).await {
         return Err(ApiError::TooManyRequests);
     }
     let safe = matches!(
@@ -195,7 +211,7 @@ impl FromRequestParts<AppState> for AuthUser {
         let live: Option<(Uuid,)> = sqlx::query_as(
             "SELECT s.id FROM sessions s JOIN users u ON u.id = s.user_id
              WHERE s.id = $1 AND s.user_id = $2 AND s.revoked_at IS NULL
-               AND s.expires_at > now() AND u.deleted_at IS NULL",
+               AND s.expires_at > now() AND u.deleted_at IS NULL AND u.disabled_at IS NULL",
         )
         .bind(claims.sid)
         .bind(claims.sub)
@@ -223,6 +239,17 @@ mod tests {
         assert!(verify_password("correct horse battery", &h));
         assert!(!verify_password("wrong", &h));
         assert!(!verify_password("x", "not-a-hash"));
+        assert!(!needs_rehash(&h));
+    }
+
+    #[test]
+    fn upstream_bcrypt_hashes_verify_and_are_flagged_for_upgrade() {
+        let h = bcrypt::hash("an old upstream password", 4).unwrap();
+        assert!(needs_rehash(&h));
+        assert!(verify_password("an old upstream password", &h));
+        assert!(!verify_password("another password", &h));
+        assert!(!verify_password("", &h));
+        assert!(!verify_password("x", "$2b$not-a-real-hash"));
     }
 
     #[test]

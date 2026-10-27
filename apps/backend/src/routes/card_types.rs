@@ -12,9 +12,9 @@ use uuid::Uuid;
 
 use super::OkOut;
 use crate::{
-    auth::AuthUser,
-    authz::{require_workspace_role, require_workspace_scoped, Role},
     error::{ApiError, ApiResult},
+    security::auth::AuthUser,
+    security::authz::{require_workspace_role, require_workspace_scoped, Role},
     state::AppState,
     util::{field_slug, short},
 };
@@ -234,6 +234,34 @@ pub async fn seed_default_card_type(
     Ok(default_id.expect("at least one type"))
 }
 
+/// Fields that make a type with a CRM layout useful from the start. They belong to that type only;
+/// summary and description are the workspace-wide ones every type shares.
+/// (name, slug, type, icon)
+pub fn layout_fields(
+    layout: &str,
+) -> &'static [(&'static str, &'static str, &'static str, &'static str)] {
+    match layout {
+        "person" => &[
+            ("Job title", "job_title", "text", "text"),
+            ("Email", "email", "email", "email"),
+            ("Phone", "phone", "text", "phone"),
+            ("Company", "company", "text", "text"),
+        ],
+        "organization" => &[
+            ("Website", "website", "url", "link"),
+            ("Industry", "industry", "text", "text"),
+            ("Employees", "employees", "number", "points"),
+            ("Phone", "phone", "text", "phone"),
+        ],
+        "deal" => &[
+            ("Amount", "amount", "currency", "currency"),
+            ("Probability", "probability", "percentage", "points"),
+            ("Expected close", "expected_close", "date", "calendar"),
+        ],
+        _ => &[],
+    }
+}
+
 pub async fn fields_for_card_type(
     db: &PgPool,
     workspace_id: Uuid,
@@ -330,8 +358,10 @@ async fn create_card_type(
         }
     }
     let sql = format!("INSERT INTO card_types (id, workspace_id, name, layout, title_template, has_children, icon, color, created_by) VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,'task'),COALESCE($8,'blue'),$9) RETURNING {CT_COLS}");
-    let row = sqlx::query_as(&sql)
-        .bind(Uuid::new_v4())
+    let id = Uuid::new_v4();
+    let mut tx = s.db.begin().await?;
+    let row: CardTypeRow = sqlx::query_as(&sql)
+        .bind(id)
         .bind(wid)
         .bind(b.name.trim())
         .bind(layout)
@@ -340,8 +370,25 @@ async fn create_card_type(
         .bind(&b.icon)
         .bind(&b.color)
         .bind(user.id)
-        .fetch_one(&s.db)
+        .fetch_one(&mut *tx)
         .await?;
+    for (name, slug, ty, icon) in layout_fields(layout) {
+        sqlx::query(
+            "INSERT INTO fields (id, workspace_id, card_type_id, name, slug, type, icon, created_by, created_by_type, created_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'system',clock_timestamp())",
+        )
+        .bind(Uuid::new_v4())
+        .bind(wid)
+        .bind(id)
+        .bind(name)
+        .bind(slug)
+        .bind(ty)
+        .bind(icon)
+        .bind(user.id)
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
     Ok(Json(row))
 }
 

@@ -17,11 +17,11 @@ use super::{
     OkOut,
 };
 use crate::{
-    auth::AuthUser,
-    authz::{require_card_role, require_list_role, require_role, Role, Scope},
+    domain::filters::{self, Ctx},
     error::{ApiError, ApiResult},
-    events::{emit, Event},
-    filters::{self, Ctx},
+    security::auth::AuthUser,
+    security::authz::{require_card_role, require_list_role, require_role, Role, Scope},
+    services::events::{emit, Event},
     state::AppState,
     util::clamp_page,
 };
@@ -35,6 +35,7 @@ pub fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(put_card_list, remove_card_list))
         .routes(routes!(workspace_card_search))
         .routes(routes!(card_by_key))
+        .routes(routes!(resolve_issue))
         .routes(routes!(my_issues))
         .routes(routes!(put_card_sprint))
 }
@@ -156,14 +157,8 @@ pub async fn validate_data(
                 }
             }
             "rich" => {
-                let ok = match v {
-                    Value::String(s) => s.len() <= 200_000,
-                    Value::Object(_) => v.to_string().len() <= 200_000,
-                    _ => false,
-                };
-                if !ok {
-                    return Err(bad(format!("{slug}: invalid rich text")));
-                }
+                // Plain text (older content) or a document the editor could have produced.
+                crate::domain::rich::validate_value(v).map_err(|e| bad(format!("{slug}: {e}")))?;
             }
             "number" | "percentage" | "currency" => {
                 if !v.as_f64().is_some_and(f64::is_finite) {
@@ -389,7 +384,6 @@ pub async fn create_card_in_list(
             card_id: id,
             workspace_id: scope.workspace_id,
             list_id,
-            actor,
             depth,
         },
     );
@@ -582,9 +576,19 @@ async fn card_children(
     user: AuthUser,
     Path(id): Path<Uuid>,
 ) -> ApiResult<Json<Vec<CardOut>>> {
-    require_card_role(&s.db, user.id, id, Role::Viewer).await?;
-    let sql = format!("SELECT {CARD_COLS} FROM cards c WHERE c.parent_id = $1 AND c.deleted_at IS NULL ORDER BY c.created_at LIMIT 500");
-    Ok(Json(sqlx::query_as(&sql).bind(id).fetch_all(&s.db).await?))
+    let scope = require_card_role(&s.db, user.id, id, Role::Viewer).await?;
+    let role = require_role(&s.db, user.id, scope.project_id, Role::Viewer).await?;
+    // A child can sit in lists the caller has no access to.
+    let vis = crate::security::authz::visible_cards_sql("c", 2, 3);
+    let sql = format!("SELECT {CARD_COLS} FROM cards c WHERE c.parent_id = $1 AND c.deleted_at IS NULL AND {vis} ORDER BY c.created_at LIMIT 500");
+    Ok(Json(
+        sqlx::query_as(&sql)
+            .bind(id)
+            .bind(role >= Role::Admin)
+            .bind(user.id)
+            .fetch_all(&s.db)
+            .await?,
+    ))
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -593,6 +597,9 @@ pub struct UpdateCardBody {
     #[schema(value_type = Option<Object>)]
     pub data: Option<Map<String, Value>>,
     pub parent_id: Option<Uuid>,
+    /// Rich-text fields this save belongs to a live collaborative editing session of the caller.
+    /// Writes to any other rich field end the field's session; see `collab.rs`.
+    pub collab_keep: Option<Vec<String>>,
 }
 
 /// Shared by the HTTP handler and the automation engine. Returns the keys that changed.
@@ -604,6 +611,23 @@ pub async fn update_card_data(
     actor: Option<Uuid>,
     by_system: bool,
     depth: u8,
+) -> ApiResult<CardOut> {
+    update_card_data_keeping(s, card_id, scope, patch, actor, by_system, depth, &[]).await
+}
+
+/// Like `update_card_data`. `keep_collab` names rich fields whose collaborative session this write
+/// belongs to (an editor saving its own document); for every other changed rich field the session
+/// document is discarded, because it no longer matches the card.
+#[allow(clippy::too_many_arguments)]
+pub async fn update_card_data_keeping(
+    s: &AppState,
+    card_id: Uuid,
+    scope: &Scope,
+    patch: Map<String, Value>,
+    actor: Option<Uuid>,
+    by_system: bool,
+    depth: u8,
+    keep_collab: &[String],
 ) -> ApiResult<CardOut> {
     let mut tx = s.db.begin().await?;
     let row: Option<(Uuid, SqlJson<Value>)> = sqlx::query_as(
@@ -651,6 +675,14 @@ pub async fn update_card_data(
             .execute(&mut *tx).await?;
     }
     tx.commit().await?;
+    let stale: Vec<String> = changes
+        .iter()
+        .map(|(k, ..)| k.clone())
+        .filter(|k| {
+            !keep_collab.contains(k) && fields.iter().any(|f| &f.slug == k && f.r#type == "rich")
+        })
+        .collect();
+    crate::services::collab::discard(s, card_id, &stale).await?;
     for (slug, old, new) in changes {
         emit(
             s,
@@ -707,7 +739,17 @@ async fn update_card(
     }
     if let Some(patch) = b.data {
         return Ok(Json(
-            update_card_data(&s, id, &scope, patch, Some(user.id), false, 0).await?,
+            update_card_data_keeping(
+                &s,
+                id,
+                &scope,
+                patch,
+                Some(user.id),
+                false,
+                0,
+                &b.collab_keep.unwrap_or_default(),
+            )
+            .await?,
         ));
     }
     Ok(Json(load_card(&s, id).await?))
@@ -827,11 +869,15 @@ async fn remove_card_list(
 ) -> ApiResult<Json<OkOut>> {
     require_card_role(&s.db, user.id, id, Role::Member).await?;
     require_list_role(&s.db, user.id, list_id, Role::Member).await?;
-    sqlx::query("DELETE FROM card_lists WHERE card_id = $1 AND list_id = $2")
-        .bind(id)
-        .bind(list_id)
-        .execute(&s.db)
-        .await?;
+    sqlx::query(
+        "DELETE FROM card_lists cl USING cards c, lists l
+         WHERE cl.card_id = $1 AND cl.list_id = $2 AND c.id = cl.card_id AND l.id = cl.list_id
+           AND c.workspace_id = l.workspace_id",
+    )
+    .bind(id)
+    .bind(list_id)
+    .execute(&s.db)
+    .await?;
     Ok(Json(OkOut { ok: true }))
 }
 
@@ -853,7 +899,7 @@ async fn workspace_card_search(
     Query(q): Query<WsSearchQuery>,
 ) -> ApiResult<Json<Vec<CardOut>>> {
     let project_id =
-        crate::authz::require_workspace_role(&s.db, user.id, wid, Role::Viewer).await?;
+        crate::security::authz::require_workspace_role(&s.db, user.id, wid, Role::Viewer).await?;
     let role = require_role(&s.db, user.id, project_id, Role::Viewer).await?;
     if q.keyword.chars().count() > 200 {
         return Err(bad("keyword too long"));
@@ -866,7 +912,7 @@ async fn workspace_card_search(
             .replace('%', "\\%")
             .replace('_', "\\_")
     );
-    let vis = crate::authz::visible_cards_sql("c", 4, 5);
+    let vis = crate::security::authz::visible_cards_sql("c", 4, 5);
     let sql = format!(
         "SELECT {CARD_COLS} FROM cards c
          WHERE c.workspace_id = $1 AND c.deleted_at IS NULL AND ($2::uuid IS NULL OR c.card_type_id = $2)
@@ -915,9 +961,25 @@ async fn card_by_key(
     user: AuthUser,
     Path((wid, key)): Path<(Uuid, String)>,
 ) -> ApiResult<Json<CardOut>> {
-    crate::authz::require_workspace_role(&s.db, user.id, wid, Role::Viewer).await?;
+    crate::security::authz::require_workspace_role(&s.db, user.id, wid, Role::Viewer).await?;
+    open_by_key(&s, &user, wid, &key).await
+}
+
+/// Open an issue (`ACME-12`) of a workspace the caller already passed the project check for.
+async fn open_by_key(
+    s: &AppState,
+    user: &AuthUser,
+    wid: Uuid,
+    key: &str,
+) -> ApiResult<Json<CardOut>> {
     let (prefix, number) = key.rsplit_once('-').ok_or(ApiError::NotFound)?;
+    if number.is_empty() || !number.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(ApiError::NotFound);
+    }
     let number: i32 = number.parse().map_err(|_| ApiError::NotFound)?;
+    if number < 1 {
+        return Err(ApiError::NotFound);
+    }
     let found: Option<(Uuid,)> = sqlx::query_as(
         "SELECT c.id FROM cards c JOIN workspaces w ON w.id = c.workspace_id
          WHERE c.workspace_id = $1 AND c.number = $2 AND upper(w.key_prefix) = upper($3) AND c.deleted_at IS NULL",
@@ -929,7 +991,24 @@ async fn card_by_key(
     .await?;
     let (id,) = found.ok_or(ApiError::NotFound)?;
     require_card_role(&s.db, user.id, id, Role::Viewer).await?; // private lists stay private
-    Ok(Json(load_card(&s, id).await?))
+    Ok(Json(load_card(s, id).await?))
+}
+
+/// Open an issue by its key alone (`ACME-12`), like Jira's /browse/KEY-12. Malformed keys,
+/// unknown keys and issues the caller may not see are all the same 404.
+#[utoipa::path(get, operation_id = "resolveIssue", path = "/issues/{key}", tag = "cards",
+    params(("key" = String, Path)), responses((status = 200, body = CardOut), (status = 404)), security(("bearer" = [])))]
+async fn resolve_issue(
+    State(s): State<AppState>,
+    user: AuthUser,
+    Path(key): Path<String>,
+) -> ApiResult<Json<CardOut>> {
+    let (prefix, _) = key.rsplit_once('-').ok_or(ApiError::NotFound)?;
+    let wid = super::workspaces::workspace_id_by_key(&s.db, prefix)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    crate::security::authz::require_workspace_role(&s.db, user.id, wid, Role::Viewer).await?;
+    open_by_key(&s, &user, wid, &key).await
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -963,12 +1042,16 @@ async fn put_card_sprint(
             return Err(bad("sprint not found in this list or already completed"));
         }
     }
-    let r = sqlx::query("UPDATE card_lists SET sprint_id = $3 WHERE card_id = $1 AND list_id = $2")
-        .bind(id)
-        .bind(b.list_id)
-        .bind(b.sprint_id)
-        .execute(&s.db)
-        .await?;
+    let r = sqlx::query(
+        "UPDATE card_lists cl SET sprint_id = $3 FROM cards c, lists l
+         WHERE cl.card_id = $1 AND cl.list_id = $2 AND c.id = cl.card_id AND l.id = cl.list_id
+           AND c.workspace_id = l.workspace_id",
+    )
+    .bind(id)
+    .bind(b.list_id)
+    .bind(b.sprint_id)
+    .execute(&s.db)
+    .await?;
     if r.rows_affected() == 0 {
         return Err(ApiError::NotFound);
     }
@@ -992,9 +1075,9 @@ async fn my_issues(
     Query(q): Query<MineQuery>,
 ) -> ApiResult<Json<Vec<CardOut>>> {
     let project_id =
-        crate::authz::require_workspace_role(&s.db, user.id, wid, Role::Viewer).await?;
+        crate::security::authz::require_workspace_role(&s.db, user.id, wid, Role::Viewer).await?;
     let role = require_role(&s.db, user.id, project_id, Role::Viewer).await?;
-    let vis = crate::authz::visible_cards_sql("c", 3, 2);
+    let vis = crate::security::authz::visible_cards_sql("c", 3, 2);
     let sql = format!(
         "SELECT {CARD_COLS} FROM cards c
          WHERE c.workspace_id = $1 AND c.deleted_at IS NULL

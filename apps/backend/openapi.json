@@ -110,6 +110,313 @@
         ]
       }
     },
+    "/admin/audit": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "adminAuditLog",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditEntry"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/branding": {
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "updateBranding",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandingPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branding"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/branding/favicon": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "putFavicon",
+        "requestBody": {
+          "description": "PNG, JPEG, WebP, ICO or a plain SVG, at most 256 KB",
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branding"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "deleteFavicon",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branding"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/overview": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "adminOverview",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/projects": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "adminListProjects",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminProject"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "adminListUsers",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{id}": {
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "adminUpdateUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/auth/login": {
       "post": {
         "tags": [
@@ -132,7 +439,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TokenPair"
+                  "$ref": "#/components/schemas/AuthOut"
                 }
               }
             }
@@ -169,6 +476,102 @@
             "bearer": []
           }
         ]
+      }
+    },
+    "/auth/mfa/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Second step of a sign-in. A challenge allows 5 tries; every miss also counts toward the\naccount lock-out.",
+        "operationId": "mfa_verify",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaVerifyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/auth/passkey/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "passkeyLogin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/auth/passkey/options": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "passkeyLoginOptions",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CeremonyOptions"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": ""
+          }
+        }
       }
     },
     "/auth/password-reset/confirm": {
@@ -274,6 +677,7 @@
         "tags": [
           "auth"
         ],
+        "summary": "With e-mail verification on (the default whenever SMTP is configured), this never creates an\naccount and never says whether the address is taken: it stores a pending registration and mails\na link, or, for a known address, mails a notice. Without SMTP the account is created at once\nand a taken address answers `409`.",
         "operationId": "register",
         "requestBody": {
           "content": {
@@ -291,12 +695,170 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TokenPair"
+                  "$ref": "#/components/schemas/AuthOut"
                 }
               }
             }
           },
+          "400": {
+            "description": ""
+          },
           "409": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/auth/saml/acs": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "samlAcs",
+        "responses": {
+          "302": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/auth/saml/metadata": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "samlMetadata",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/samlmetadata+xml": {}
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/auth/sso/{provider}/callback": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "ssoCallback",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/auth/sso/{provider}/start": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Redirects the browser to the provider. `provider` is `google`, `github`, `microsoft`, `slack`\nor `saml`, as far as the instance configured it.",
+        "operationId": "ssoStart",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "next",
+            "in": "query",
+            "description": "Same-site path to open afterwards",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/auth/verify-email": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Turns a pending registration into an account and signs the new user in. The link works once.",
+        "operationId": "verify_email",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthOut"
+                }
+              }
+            }
+          },
+          "400": {
             "description": ""
           },
           "429": {
@@ -596,6 +1158,43 @@
             "bearer": []
           }
         ]
+      }
+    },
+    "/branding": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "What every visitor sees: the instance's name, description, accent colour and whether it has its\nown favicon. Public on purpose (the sign-in page needs it).",
+        "operationId": "getBranding",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branding"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/branding/favicon": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "getFavicon",
+        "responses": {
+          "200": {
+            "description": "the favicon bytes"
+          },
+          "404": {
+            "description": ""
+          }
+        }
       }
     },
     "/card-types/{id}": {
@@ -960,6 +1559,114 @@
             }
           },
           "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/cards/{id}/collab/{slug}/events": {
+      "get": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Updates of the other editors as server-sent events: `{\"t\":\"update\",\"u\":<base64>,\"from\":<user>}`,\nand `{\"t\":\"reset\"}` when the field was changed outside the editor.",
+        "operationId": "collabEvents",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "text/event-stream"
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/cards/{id}/collab/{slug}/sync": {
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Pushes local changes and pulls the ones the client lacks.",
+        "operationId": "syncCollab",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
             "description": ""
           }
         },
@@ -1619,6 +2326,45 @@
         ]
       }
     },
+    "/issues/{key}": {
+      "get": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Open an issue by its key alone (`ACME-12`), like Jira's /browse/KEY-12. Malformed keys,\nunknown keys and issues the caller may not see are all the same 404.",
+        "operationId": "resolveIssue",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/lists/{id}": {
       "get": {
         "tags": [
@@ -2148,6 +2894,124 @@
         ]
       }
     },
+    "/lists/{id}/invites": {
+      "post": {
+        "tags": [
+          "lists"
+        ],
+        "summary": "Invites to a single list: whoever accepts becomes a limited-access member of the project (or\nkeeps their membership) and is granted `role` on this list only.",
+        "operationId": "createListInvite",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/lists/{id}/invites/email": {
+      "post": {
+        "tags": [
+          "lists"
+        ],
+        "summary": "Like the project invitation, but for one list: the invited address becomes a limited-access\nmember that only sees this list (existing members just get access to it).",
+        "operationId": "inviteToListByEmail",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailInvite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailInviteOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/lists/{id}/sprints": {
       "get": {
         "tags": [
@@ -2657,6 +3521,330 @@
         ]
       }
     },
+    "/me/mfa/disable": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Both factors are needed to switch MFA off again.",
+        "operationId": "disableMfa",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordAndCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/mfa/enable": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Confirms enrolment with a code from the authenticator and returns the recovery codes.",
+        "operationId": "enableMfa",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodesOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/mfa/recovery-codes": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Replaces all recovery codes with a fresh set.",
+        "operationId": "regenerateRecoveryCodes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordAndCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodesOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/mfa/setup": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Starts enrolment: stores a fresh pending secret (replacing an unconfirmed one). MFA is only\nactive once `/me/mfa/enable` has seen a valid code.",
+        "operationId": "setupMfa",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordOnly"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaSetupOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/passkeys": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "listPasskeys",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PasskeyOut"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "finishPasskeyRegistration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrationFinish"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/passkeys/options": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "passkeyRegistrationOptions",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrationStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CeremonyOptions"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/passkeys/{id}": {
+      "delete": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "deletePasskey",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/me/password": {
       "post": {
         "tags": [
@@ -2689,6 +3877,217 @@
             "description": ""
           },
           "403": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/sessions": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "The caller's live sign-ins, most recently active first. Needs a real session, so an API\ntoken cannot enumerate them.",
+        "operationId": "listSessions",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessionOut"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "\"Sign out everywhere else\": every sign-in except the one making the request.",
+        "operationId": "revokeOtherSessions",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/sessions/{id}": {
+      "delete": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Signs out one device. Its access token stops working immediately because the session is\nre-checked on every request.",
+        "operationId": "revokeSession",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/sso": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "listSsoLinks",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SsoLink"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/sso/{provider}": {
+      "delete": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Disconnects a provider, unless it is the only way left to sign in.",
+        "operationId": "unlinkSso",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/sso/{provider}/link": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Starts connecting a provider to the signed-in account. Needs a real session.",
+        "operationId": "startSsoLink",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkStart"
+                }
+              }
+            }
+          },
+          "404": {
             "description": ""
           }
         },
@@ -4389,6 +5788,45 @@
         ]
       }
     },
+    "/workspaces/by-key/{key}": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Look a workspace up by its issue-key prefix (`ACME`), case-insensitively. Unknown keys and\nworkspaces of projects the caller is not in look identical.",
+        "operationId": "getWorkspaceByKey",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/workspaces/{id}": {
       "get": {
         "tags": [
@@ -5232,9 +6670,23 @@
           "project_id"
         ],
         "properties": {
+          "list_slug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "project_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "workspace_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Set for list invites, so the client can open the list afterwards."
           }
         }
       },
@@ -5317,6 +6769,126 @@
           }
         }
       },
+      "AdminProject": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "members",
+          "workspaces",
+          "cards",
+          "file_bytes"
+        ],
+        "properties": {
+          "cards": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "file_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner_email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workspaces": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "AdminUser": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "first_name",
+          "last_name",
+          "created_at",
+          "is_instance_admin",
+          "disabled",
+          "locked",
+          "mfa_enabled",
+          "passkeys",
+          "has_password",
+          "sso",
+          "projects"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "email": {
+            "type": "string"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "has_password": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_instance_admin": {
+            "type": "boolean"
+          },
+          "last_active_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "locked": {
+            "type": "boolean"
+          },
+          "mfa_enabled": {
+            "type": "boolean"
+          },
+          "passkeys": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "projects": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sso": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "ApiTokenCreated": {
         "allOf": [
           {
@@ -5378,6 +6950,122 @@
           "token_prefix": {
             "type": "string",
             "description": "First characters of the token, to recognise it. The full token is shown only once."
+          }
+        }
+      },
+      "AssertionResponse": {
+        "type": "object",
+        "required": [
+          "client_data_json",
+          "authenticator_data",
+          "signature"
+        ],
+        "properties": {
+          "authenticator_data": {
+            "type": "string"
+          },
+          "client_data_json": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          },
+          "user_handle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "AttestationResponse": {
+        "type": "object",
+        "required": [
+          "client_data_json",
+          "attestation_object"
+        ],
+        "properties": {
+          "attestation_object": {
+            "type": "string"
+          },
+          "client_data_json": {
+            "type": "string"
+          }
+        }
+      },
+      "AuditEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "at",
+          "action",
+          "detail"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "actor_email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "detail": {
+            "type": "object"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "AuthOut": {
+        "type": "object",
+        "description": "Result of a sign-in or sign-up step. Exactly one of three shapes: a session\n(`access_token`), a second step (`mfa_required` + `mfa_token`) or a pending confirmation\n(`verification_required`).",
+        "required": [
+          "mfa_required",
+          "verification_required"
+        ],
+        "properties": {
+          "access_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expires_in": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Seconds until the access token expires."
+          },
+          "mfa_required": {
+            "type": "boolean",
+            "description": "The password was right, but a code from the authenticator (or a recovery code) is needed."
+          },
+          "mfa_token": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Present with `mfa_required`: send it with the code to `/auth/mfa/verify`. Valid for 5 minutes."
+          },
+          "verification_required": {
+            "type": "boolean",
+            "description": "A confirmation e-mail was sent. The answer is the same whether or not the address is\nalready registered."
           }
         }
       },
@@ -5562,6 +7250,59 @@
           "workspace_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "Branding": {
+        "type": "object",
+        "required": [
+          "title",
+          "description",
+          "accent",
+          "has_favicon",
+          "version"
+        ],
+        "properties": {
+          "accent": {
+            "type": "string",
+            "description": "`#RRGGBB`; the interface derives its accent colour from it."
+          },
+          "description": {
+            "type": "string"
+          },
+          "has_favicon": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Changes whenever the branding does, so caches can be bypassed."
+          }
+        }
+      },
+      "BrandingPatch": {
+        "type": "object",
+        "properties": {
+          "accent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -5864,6 +7605,23 @@
           }
         }
       },
+      "CeremonyOptions": {
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "options"
+        ],
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "options": {
+            "type": "object",
+            "description": "Pass to `navigator.credentials.create()` / `.get()` as `publicKey` (binary values are base64url)."
+          }
+        }
+      },
       "ChannelOut": {
         "type": "object",
         "required": [
@@ -5879,6 +7637,17 @@
           }
         }
       },
+      "CodeBody": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        }
+      },
       "CompleteBody": {
         "type": "object",
         "properties": {
@@ -5889,6 +7658,134 @@
             ],
             "format": "uuid",
             "description": "Where unfinished issues go: another sprint of this list, or `null` for the backlog."
+          }
+        }
+      },
+      "ConfigSummary": {
+        "type": "object",
+        "required": [
+          "version",
+          "registration_enabled",
+          "email_enabled",
+          "email_verification_required",
+          "sso_providers",
+          "mfa_available",
+          "storage",
+          "scheduler",
+          "shared_rate_limit"
+        ],
+        "properties": {
+          "email_enabled": {
+            "type": "boolean"
+          },
+          "email_verification_required": {
+            "type": "boolean"
+          },
+          "mfa_available": {
+            "type": "boolean"
+          },
+          "registration_enabled": {
+            "type": "boolean"
+          },
+          "scheduler": {
+            "type": "boolean"
+          },
+          "shared_rate_limit": {
+            "type": "boolean"
+          },
+          "sso_providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "storage": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "Counts": {
+        "type": "object",
+        "required": [
+          "users",
+          "users_disabled",
+          "admins",
+          "users_with_mfa",
+          "users_with_passkeys",
+          "projects",
+          "workspaces",
+          "lists",
+          "cards",
+          "comments",
+          "files",
+          "file_bytes",
+          "automations_enabled",
+          "active_sessions",
+          "api_tokens"
+        ],
+        "properties": {
+          "active_sessions": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "admins": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "api_tokens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "automations_enabled": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "cards": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "comments": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "file_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "files": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lists": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "projects": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "users": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "users_disabled": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "users_with_mfa": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "users_with_passkeys": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "workspaces": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -6552,6 +8449,18 @@
           }
         }
       },
+      "LinkStart": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Open this address to connect the provider."
+          }
+        }
+      },
       "ListBody": {
         "type": "object",
         "required": [
@@ -6656,7 +8565,8 @@
             "required": [
               "stages",
               "views",
-              "field_ids"
+              "field_ids",
+              "role"
             ],
             "properties": {
               "field_ids": {
@@ -6665,6 +8575,10 @@
                   "type": "string",
                   "format": "uuid"
                 }
+              },
+              "role": {
+                "type": "string",
+                "description": "The caller's effective role on this list: `viewer`, `member`, `admin` or `owner`."
               },
               "stages": {
                 "type": "array",
@@ -6820,6 +8734,8 @@
           "email",
           "first_name",
           "last_name",
+          "mfa_enabled",
+          "is_instance_admin",
           "auth_method"
         ],
         "properties": {
@@ -6837,8 +8753,16 @@
             "type": "string",
             "format": "uuid"
           },
+          "is_instance_admin": {
+            "type": "boolean",
+            "description": "May open the admin panel."
+          },
           "last_name": {
             "type": "string"
+          },
+          "mfa_enabled": {
+            "type": "boolean",
+            "description": "Two-factor authentication is switched on for this account."
           }
         }
       },
@@ -6849,7 +8773,8 @@
           "first_name",
           "last_name",
           "email",
-          "role"
+          "role",
+          "restricted"
         ],
         "properties": {
           "email": {
@@ -6861,12 +8786,49 @@
           "last_name": {
             "type": "string"
           },
+          "restricted": {
+            "type": "boolean",
+            "description": "Limited access: sees only the lists and spaces they were explicitly added to."
+          },
           "role": {
             "type": "string"
           },
           "user_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "MfaSetupOut": {
+        "type": "object",
+        "required": [
+          "secret",
+          "otpauth_uri"
+        ],
+        "properties": {
+          "otpauth_uri": {
+            "type": "string",
+            "description": "`otpauth://` URI; render it as a QR code."
+          },
+          "secret": {
+            "type": "string",
+            "description": "Base32 secret for manual entry."
+          }
+        }
+      },
+      "MfaVerifyBody": {
+        "type": "object",
+        "required": [
+          "mfa_token",
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code from the authenticator app, or a recovery code."
+          },
+          "mfa_token": {
+            "type": "string"
           }
         }
       },
@@ -6962,6 +8924,87 @@
           }
         }
       },
+      "Overview": {
+        "type": "object",
+        "required": [
+          "counts",
+          "config"
+        ],
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/ConfigSummary",
+            "description": "Settings that matter for running the instance. Never contains a secret."
+          },
+          "counts": {
+            "$ref": "#/components/schemas/Counts"
+          }
+        }
+      },
+      "PasskeyLogin": {
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "id",
+          "response"
+        ],
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "description": "The credential id (base64url)."
+          },
+          "response": {
+            "$ref": "#/components/schemas/AssertionResponse"
+          }
+        }
+      },
+      "PasskeyOut": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "last_used_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "PasswordAndCode": {
+        "type": "object",
+        "required": [
+          "password",
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Authenticator code or recovery code."
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
       "PasswordBody": {
         "type": "object",
         "required": [
@@ -6973,6 +9016,17 @@
             "type": "string"
           },
           "new_password": {
+            "type": "string"
+          }
+        }
+      },
+      "PasswordOnly": {
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "properties": {
+          "password": {
             "type": "string"
           }
         }
@@ -7056,6 +9110,21 @@
           }
         }
       },
+      "RecoveryCodesOut": {
+        "type": "object",
+        "required": [
+          "recovery_codes"
+        ],
+        "properties": {
+          "recovery_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Shown once. Each code works one time."
+          }
+        }
+      },
       "RegisterBody": {
         "type": "object",
         "required": [
@@ -7076,6 +9145,39 @@
           },
           "password": {
             "type": "string"
+          }
+        }
+      },
+      "RegistrationFinish": {
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "name",
+          "response"
+        ],
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "description": "A name to tell the passkeys apart (\"Laptop\", \"Phone\")."
+          },
+          "response": {
+            "$ref": "#/components/schemas/AttestationResponse"
+          }
+        }
+      },
+      "RegistrationStart": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Required for accounts that have a password."
           }
         }
       },
@@ -7107,12 +9209,20 @@
       },
       "RoleBody": {
         "type": "object",
-        "required": [
-          "role"
-        ],
         "properties": {
+          "restricted": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Limit the member to the lists and spaces they hold a grant on. Needs the role `viewer`."
+          },
           "role": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New project role. Granting `member` or higher ends limited access."
           }
         }
       },
@@ -7220,6 +9330,52 @@
               "null"
             ],
             "description": "Scrum lists: `backlog` (not in any sprint), `active` (the running sprint) or a sprint id."
+          }
+        }
+      },
+      "SessionOut": {
+        "type": "object",
+        "description": "One sign-in. Refresh tokens rotate, so a sign-in is a token family: it is identified by the\nfamily id, which stays the same for as long as the sign-in lives.",
+        "required": [
+          "id",
+          "current",
+          "created_at",
+          "last_active_at",
+          "expires_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "current": {
+            "type": "boolean",
+            "description": "This is the session making the request."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ip": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_active_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "user_agent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Browser / device, as reported when the session was last used."
           }
         }
       },
@@ -7497,6 +9653,23 @@
           }
         }
       },
+      "SsoLink": {
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "properties": {
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          }
+        }
+      },
       "StageBody": {
         "type": "object",
         "required": [
@@ -7612,23 +9785,101 @@
           }
         }
       },
+      "SyncBody": {
+        "type": "object",
+        "properties": {
+          "seed": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Base64 initial document, used only if no session document exists yet (needs write access)."
+          },
+          "state_vector": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Base64 state vector of the client's document, so the answer only holds what it lacks."
+          },
+          "update": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Base64 Yjs update with local changes (needs write access)."
+          }
+        }
+      },
+      "SyncOut": {
+        "type": "object",
+        "required": [
+          "empty",
+          "update",
+          "state_vector"
+        ],
+        "properties": {
+          "empty": {
+            "type": "boolean",
+            "description": "No session document exists yet and none was seeded: the caller should seed it."
+          },
+          "state_vector": {
+            "type": "string",
+            "description": "Base64 state vector of the server's document."
+          },
+          "update": {
+            "type": "string",
+            "description": "Base64 update with everything the client lacks."
+          }
+        }
+      },
       "SystemInfo": {
         "type": "object",
         "required": [
           "registration_enabled",
           "mail_enabled",
-          "slack_enabled"
+          "slack_enabled",
+          "mfa_available",
+          "email_verification_required",
+          "sso_providers",
+          "passkeys_available"
         ],
         "properties": {
+          "email_verification_required": {
+            "type": "boolean",
+            "description": "Sign-up needs a confirmed e-mail address."
+          },
           "mail_enabled": {
             "type": "boolean",
             "description": "Outgoing e-mail is configured (password reset, invitations, notifications by e-mail)."
+          },
+          "mfa_available": {
+            "type": "boolean",
+            "description": "Two-factor authentication can be enabled (needs `WORK_ENCRYPTION_KEY`)."
+          },
+          "passkeys_available": {
+            "type": "boolean",
+            "description": "Passkeys can be used (they need the page to be served over https, or localhost)."
           },
           "registration_enabled": {
             "type": "boolean"
           },
           "slack_enabled": {
             "type": "boolean"
+          },
+          "sso_oidc_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Label for the `oidc` provider, e.g. the name of the company's identity provider."
+          },
+          "sso_providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Single sign-on providers configured on this instance (`google`, `github`, `microsoft`,\n`slack`, `saml`)."
           }
         }
       },
@@ -7666,6 +9917,16 @@
       "UpdateCardBody": {
         "type": "object",
         "properties": {
+          "collab_keep": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Rich-text fields this save belongs to a live collaborative editing session of the caller.\nWrites to any other rich field end the field's session; see `collab.rs`."
+          },
           "data": {
             "type": [
               "object",
@@ -7714,6 +9975,61 @@
             "format": "uuid"
           },
           "last_name": {
+            "type": "string"
+          }
+        }
+      },
+      "UserPage": {
+        "type": "object",
+        "required": [
+          "total",
+          "users"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminUser"
+            }
+          }
+        }
+      },
+      "UserPatch": {
+        "type": "object",
+        "properties": {
+          "disabled": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Blocks sign-in everywhere (sessions end at once) or lifts the block."
+          },
+          "is_instance_admin": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "unlock": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Clears a lock-out after failed sign-ins."
+          }
+        }
+      },
+      "VerifyEmailBody": {
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
             "type": "string"
           }
         }

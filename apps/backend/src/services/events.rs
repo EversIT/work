@@ -16,7 +16,6 @@ pub enum Event {
         card_id: Uuid,
         workspace_id: Uuid,
         list_id: Uuid,
-        actor: Option<Uuid>,
         depth: u8,
     },
     FieldUpdated {
@@ -48,8 +47,9 @@ pub enum Event {
 }
 
 pub type EventSender = mpsc::UnboundedSender<Event>;
+pub type EventReceiver = mpsc::UnboundedReceiver<Event>;
 
-pub fn channel() -> (EventSender, mpsc::UnboundedReceiver<Event>) {
+pub fn channel() -> (EventSender, EventReceiver) {
     mpsc::unbounded_channel()
 }
 
@@ -58,12 +58,12 @@ pub fn emit(state: &AppState, event: Event) {
     let _ = state.events.send(event);
 }
 
-pub async fn run_worker(state: AppState, mut rx: mpsc::UnboundedReceiver<Event>) {
+pub async fn run_worker(state: AppState, mut rx: EventReceiver) {
     while let Some(event) = rx.recv().await {
-        if let Err(e) = crate::notify::handle_event(&state, &event).await {
+        if let Err(e) = crate::services::notify::handle_event(&state, &event).await {
             tracing::warn!(error = %e, "notification handler failed");
         }
-        if let Err(e) = crate::automations::handle_event(&state, &event).await {
+        if let Err(e) = crate::domain::automations::handle_event(&state, &event).await {
             tracing::warn!(error = %e, "automation handler failed");
         }
     }

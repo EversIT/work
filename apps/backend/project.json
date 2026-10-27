@@ -70,7 +70,7 @@
       "dependsOn": ["build", "build-arm64"],
       "options": {
         "engine": "docker",
-        "file": "{workspaceRoot}/rust.Dockerfile",
+        "file": "{workspaceRoot}/packages/docker/rust.Dockerfile",
         "build-args": ["APP_NAME=work-backend", "GIT_HASH=${GITHUB_SHA}"],
         "platforms": ["linux/amd64", "linux/arm64"],
         "cache-from": ["type=registry,ref=${EVERSIT_WORK_BACKEND}:buildcache"],
@@ -98,7 +98,7 @@
       "dependsOn": ["build-linux"],
       "options": {
         "engine": "docker",
-        "file": "{workspaceRoot}/rust.Dockerfile",
+        "file": "{workspaceRoot}/packages/docker/rust.Dockerfile",
         "build-args": [
           "APP_NAME=work-backend",
           "BIN_AMD64=dist/target-linux/release/work-backend",

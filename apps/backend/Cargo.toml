@@ -39,6 +39,18 @@ aes-gcm = "0.10"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 infer = "0.16"
 futures-core = "0.3"
+futures-util = { version = "0.3", default-features = false }
 hmac = "0.12"
+sha1 = "0.10"
 hex = "0.4"
 url = "2"
+object_store = { version = "0.14", default-features = false, features = ["aws", "azure", "fs"] }
+bytes = "1"
+ciborium = "0.2"
+p256 = { version = "0.13", default-features = false, features = ["ecdsa", "std"] }
+yrs = "0.28"
+bcrypt = "0.17"
+saml = { version = "0.1.0-alpha.1", default-features = false, features = ["rsa-sha", "ecdsa-sha", "xmlenc", "slo", "metadata-emit", "xsd-validate"] }
+
+[dev-dependencies]
+rcgen = "0.13"

@@ -1,4 +1,4 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, time::Duration};
 
 use axum::{
     extract::{Path, Query, State},
@@ -6,22 +6,26 @@ use axum::{
     Json,
 };
 use chrono::{DateTime, Utc};
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::types::Json as SqlJson;
-use tokio_stream::{wrappers::BroadcastStream, StreamExt};
+use tokio_stream::wrappers::BroadcastStream;
 use utoipa::ToSchema;
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use super::{users::UserBrief, OkOut};
 use crate::{
-    auth::AuthUser,
-    authz::{require_card_role, require_list_role, Role},
     error::{ApiError, ApiResult},
+    security::auth::AuthUser,
+    security::authz::{require_card_role, require_list_role, Role},
     state::AppState,
     util::clamp_page,
 };
+
+/// Streams end after this long, so a disabled or signed-out user is cut off at the next reconnect.
+const STREAM_LIFETIME: Duration = Duration::from_secs(10 * 60);
 
 pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
@@ -259,8 +263,9 @@ async fn events_stream(
 ) -> impl axum::response::IntoResponse {
     let rx = s.hub.subscribe(user.id);
     let stream = BroadcastStream::new(rx)
-        .filter_map(|m| m.ok())
-        .map(|m| Ok::<_, Infallible>(SseEvent::default().data(m)));
+        .filter_map(|m| async move { m.ok() })
+        .map(|m| Ok::<_, Infallible>(SseEvent::default().data(m)))
+        .take_until(tokio::time::sleep(STREAM_LIFETIME));
     // `no-transform` keeps proxies (e.g. the Next.js rewrite proxy) from compressing and thereby buffering the stream.
     (
         [

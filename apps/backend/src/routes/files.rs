@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use axum::{
     body::Body,
     extract::{DefaultBodyLimit, Multipart, Path, State},
@@ -9,7 +7,6 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use tokio::io::AsyncWriteExt;
 use utoipa::ToSchema;
 use utoipa_axum::{
     router::{OpenApiRouter, UtoipaMethodRouterExt},
@@ -18,9 +15,9 @@ use utoipa_axum::{
 use uuid::Uuid;
 
 use crate::{
-    auth::AuthUser,
-    authz::{require_role, Role},
     error::{ApiError, ApiResult},
+    security::auth::AuthUser,
+    security::authz::{require_role, require_uploader, Role},
     state::AppState,
 };
 
@@ -86,10 +83,6 @@ fn clean_name(raw: &str) -> String {
     }
 }
 
-fn path_for(dir: &str, key: Uuid) -> PathBuf {
-    PathBuf::from(dir).join(key.to_string())
-}
-
 #[derive(utoipa::ToSchema)]
 #[allow(dead_code)]
 pub struct UploadForm {
@@ -107,7 +100,7 @@ async fn upload_file(
     Path(project_id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> ApiResult<Json<FileOut>> {
-    require_role(&s.db, user.id, project_id, Role::Member).await?;
+    require_uploader(&s.db, user.id, project_id).await?;
     let field = multipart
         .next_field()
         .await
@@ -152,22 +145,8 @@ async fn upload_file(
     if used + bytes.len() as i64 > limit {
         return Err(ApiError::BadRequest("upload limit exceeded".into()));
     }
-    tokio::fs::create_dir_all(&s.config.upload_dir)
-        .await
-        .map_err(|e| ApiError::Internal(Box::new(e)))?;
-    let path = path_for(&s.config.upload_dir, key);
-    let mut f = tokio::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&path)
-        .await
-        .map_err(|e| ApiError::Internal(Box::new(e)))?;
-    f.write_all(&bytes)
-        .await
-        .map_err(|e| ApiError::Internal(Box::new(e)))?;
-    f.flush()
-        .await
-        .map_err(|e| ApiError::Internal(Box::new(e)))?;
+    // Written before the row exists; removed again if the insert fails.
+    s.storage.put(key, bytes.clone()).await?;
     let inserted = sqlx::query_as::<_, FileOut>(
         "INSERT INTO files (id, project_id, created_by, name, content_type, size, storage_key) VALUES ($1,$2,$3,$4,$5,$6,$7)
          RETURNING id, project_id, name, content_type, size, created_at, '' AS url")
@@ -180,7 +159,7 @@ async fn upload_file(
             Ok(Json(row))
         }
         Err(e) => {
-            let _ = tokio::fs::remove_file(&path).await;
+            s.storage.delete(key).await;
             Err(e.into())
         }
     }
@@ -202,9 +181,7 @@ async fn download_file(
     let (project_id, name, content_type, key) = row.ok_or(ApiError::NotFound)?;
     require_role(&s.db, user.id, project_id, Role::Viewer).await?; // 404 for non-members
     let key = Uuid::parse_str(&key).map_err(|e| ApiError::Internal(Box::new(e)))?;
-    let bytes = tokio::fs::read(path_for(&s.config.upload_dir, key))
-        .await
-        .map_err(|_| ApiError::NotFound)?;
+    let bytes = s.storage.get(key).await?;
 
     let inline = INLINE.contains(&content_type.as_str());
     let disposition = format!(

@@ -10,9 +10,9 @@ use uuid::Uuid;
 
 use super::OkOut;
 use crate::{
-    auth::AuthUser,
-    authz::{require_list_role, Role},
     error::{ApiError, ApiResult},
+    security::auth::AuthUser,
+    security::authz::{require_list_role, Role},
     state::AppState,
     util::short,
 };

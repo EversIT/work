@@ -6,8 +6,9 @@ use uuid::Uuid;
 
 use super::OkOut;
 use crate::{
-    auth::{hash_password, verify_password, AuthUser, MAX_PASSWORD_LEN, MIN_PASSWORD_LEN},
     error::{ApiError, ApiResult},
+    security::auth::{hash_password, verify_password, AuthUser},
+    security::policy::check_password,
     state::AppState,
 };
 
@@ -58,9 +59,13 @@ pub struct PasswordBody {
     pub new_password: String,
 }
 
-async fn verify_current(s: &AppState, user: &AuthUser, password: String) -> ApiResult<()> {
+pub(crate) async fn verify_current(
+    s: &AppState,
+    user: &AuthUser,
+    password: String,
+) -> ApiResult<()> {
     // Per-account throttle so a stolen access token cannot be used to brute-force the password.
-    if !s.auth_limiter.check(&format!("pwcheck:{}", user.id)) {
+    if !s.auth_limiter.check(&format!("pwcheck:{}", user.id)).await {
         return Err(ApiError::TooManyRequests);
     }
     let (hash,): (String,) = sqlx::query_as("SELECT password_hash FROM users WHERE id = $1")
@@ -88,13 +93,13 @@ async fn change_password(
 ) -> ApiResult<Json<OkOut>> {
     // Credentials can only be changed from a real session, never with an API token.
     let session = user.require_session()?;
-    let n = b.new_password.chars().count();
-    if !(MIN_PASSWORD_LEN..=MAX_PASSWORD_LEN).contains(&n) {
-        return Err(ApiError::BadRequest(format!(
-            "password must be {MIN_PASSWORD_LEN}-{MAX_PASSWORD_LEN} characters"
-        )));
-    }
     verify_current(&s, &user, b.current_password).await?;
+    let (email, first, last): (String, String, String) =
+        sqlx::query_as("SELECT email::text, first_name, last_name FROM users WHERE id = $1")
+            .bind(user.id)
+            .fetch_one(&s.db)
+            .await?;
+    check_password(&b.new_password, &[&email, &first, &last])?;
     let new = b.new_password;
     let hash = tokio::task::spawn_blocking(move || hash_password(&new))
         .await
@@ -142,6 +147,13 @@ async fn delete_me(
         .bind(user.id)
         .execute(&mut *tx)
         .await?;
+    // Ways to sign in disappear with the account (the row stays for authorship).
+    for table in ["passkeys", "sso_identities"] {
+        sqlx::query(&format!("DELETE FROM {table} WHERE user_id = $1"))
+            .bind(user.id)
+            .execute(&mut *tx)
+            .await?;
+    }
     sqlx::query("DELETE FROM user_integrations WHERE user_id = $1")
         .bind(user.id)
         .execute(&mut *tx)

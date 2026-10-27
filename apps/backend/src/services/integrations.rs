@@ -18,9 +18,9 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
-    auth::{hash_token, random_token, AuthUser},
     error::{ApiError, ApiResult},
     routes::OkOut,
+    security::auth::{hash_token, random_token, AuthUser},
     state::AppState,
 };
 
