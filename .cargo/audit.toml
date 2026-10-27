@@ -1,0 +1,19 @@
+# Advisories we have looked at and cannot fix by updating. Each entry says why it is accepted and what
+# would make it go away; remove it as soon as that happens. `cargo audit` still lists these as
+# ignored, so they do not disappear from sight.
+
+[advisories]
+ignore = [
+  # rsa 0.9 "Marvin Attack" (timing side channel in private-key operations). No fixed version
+  # exists. The crate is only used by `saml`, to sign authentication requests with the optional
+  # service-provider key (WORK_SAML_SP_KEY_FILE, off by default); everything else about SAML is
+  # signature *verification* with public keys. An attacker would need many precise timings of
+  # those signatures over the network. Remove when the `saml` crate moves to an rsa release that
+  # fixes it, or switch the outbound signature to ECDSA.
+  "RUSTSEC-2023-0071",
+  # crypto-bigint 0.5.5, timing variability in constant-time operations. Pulled in by p256 0.13 and
+  # rsa 0.9 (through `saml`); the fix needs crypto-bigint >= 0.7, which p256 0.13 cannot use. We
+  # only verify ECDSA signatures (public data). Remove when `saml` and `p256` move to a release
+  # built on crypto-bigint 0.7.
+  "RUSTSEC-2026-0387",
+]
