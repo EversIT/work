@@ -1,32 +1,74 @@
 'use client';
 
-import { Button, Dropdown, Modal, Spinner, buttonVariants, toast } from '@heroui/react';
+import {
+  Button,
+  Dropdown,
+  Modal,
+  Spinner,
+  buttonVariants,
+  toast,
+} from '@heroui/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, Eye, EyeOff, Link2, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  Link2,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { useDeleteCard, useGetCard, useGetCardChildren, usePutCardList, useUpdateCard, putCardSprint } from '../../api/generated/cards/cards';
+import {
+  useDeleteCard,
+  useGetCard,
+  useGetCardChildren,
+  usePutCardList,
+  useUpdateCard,
+  putCardSprint,
+} from '../../api/generated/cards/cards';
 import { useGetList } from '../../api/generated/lists/lists';
 import { useListSprints } from '../../api/generated/sprints/sprints';
-import { useAddWatcher, useIsWatching, useRemoveWatcher } from '../../api/generated/notifications/notifications';
+import {
+  useAddWatcher,
+  useIsWatching,
+  useRemoveWatcher,
+} from '../../api/generated/notifications/notifications';
 import { body, errorKind, serverMessage } from '../../lib/api';
 import { formatDate } from '../../lib/format';
+import { asStrings } from '../../lib/cards';
 import { issueTitle, issueType } from '../../lib/issue';
+import { BASE_PATH, routes } from '../../lib/routes';
 import { IssueTypeIcon, Lozenge, stageKind } from '../jira/issue-ui';
 import { useCreateIssue } from '../shell/create-issue-context';
 import { useWorkspaceCtx } from '../shell/workspace-context';
 import { JiraDialog } from '../ui/jira-dialog';
+import { Panel } from '../ui/settings';
 import { SimpleSelect } from '../ui/inputs';
+import { CrmHeader } from './crm-header';
+import { CollabField } from '../rich/collab-field';
 import { FieldEditor } from './field-editor';
 import { IssueActivity } from './issue-activity';
+import { InlineTitle } from './inline-title';
 
 /** Details-panel order, like Jira's right-hand column. */
-const DETAIL_ORDER = ['assignee', 'reporter', 'priority', 'labels', 'story_points', 'due_at', 'starts_at', 'estimate_hours'];
-const rank = (slug: string) => (DETAIL_ORDER.indexOf(slug) === -1 ? 99 : DETAIL_ORDER.indexOf(slug));
+const DETAIL_ORDER = [
+  'assignee',
+  'reporter',
+  'priority',
+  'labels',
+  'story_points',
+  'due_at',
+  'starts_at',
+  'estimate_hours',
+];
+const rank = (slug: string) =>
+  DETAIL_ORDER.indexOf(slug) === -1 ? 99 : DETAIL_ORDER.indexOf(slug);
 
 export function IssueView({
   cardId,
-  workspaceId,
   variant,
   onClose,
 }: {
@@ -46,18 +88,35 @@ export function IssueView({
   const fields = type?.fields ?? [];
   const title = fields.find((f) => f.is_title);
   const description = fields.find((f) => f.is_description);
-  const details = fields.filter((f) => !f.is_title && !f.is_description && !['stage', 'card'].includes(f.type)).sort((a, b) => rank(a.slug) - rank(b.slug));
+  const details = fields
+    .filter(
+      (f) =>
+        !f.is_title && !f.is_description && !['stage', 'card'].includes(f.type),
+    )
+    .sort((a, b) => rank(a.slug) - rank(b.slug));
   const update = useUpdateCard();
+  const canWrite =
+    ctx.members.find((m) => m.user_id === ctx.me?.id)?.role !== 'viewer';
   const del = useDeleteCard();
   const putList = usePutCardList();
   const children = body(useGetCardChildren(cardId).data) ?? [];
   const primary = card?.lists[0];
-  const list = body(useGetList(primary?.list_id ?? '', { query: { enabled: !!primary } }).data);
-  const sprints = body(useListSprints(primary?.list_id ?? '', { query: { enabled: !!primary && list?.methodology === 'scrum' } }).data) ?? [];
-  const watching = body(useIsWatching({ resource_type: 'card', resource_id: cardId }).data)?.watching ?? false;
+  const list = body(
+    useGetList(primary?.list_id ?? '', { query: { enabled: !!primary } }).data,
+  );
+  const sprints =
+    body(
+      useListSprints(primary?.list_id ?? '', {
+        query: { enabled: !!primary && list?.methodology === 'scrum' },
+      }).data,
+    ) ?? [];
+  const watching =
+    body(useIsWatching({ resource_type: 'card', resource_id: cardId }).data)
+      ?.watching ?? false;
   const addWatcher = useAddWatcher();
   const removeWatcher = useRemoveWatcher();
-  const fail = (e: unknown) => toast.danger(serverMessage(e) ?? te(errorKind(e)));
+  const fail = (e: unknown) =>
+    toast.danger(serverMessage(e) ?? te(errorKind(e)));
 
   const content = (() => {
     if (!card || !type) {
@@ -69,7 +128,10 @@ export function IssueView({
     }
     const patch = async (slug: string, value: unknown) => {
       try {
-        await update.mutateAsync({ id: card.id, data: { data: { [slug]: value } } });
+        await update.mutateAsync({
+          id: card.id,
+          data: { data: { [slug]: value } },
+        });
         await qc.invalidateQueries();
       } catch (e) {
         fail(e);
@@ -80,72 +142,177 @@ export function IssueView({
       const cl = c.lists[0];
       return list?.stages.find((s) => s.id === cl?.list_stage_id)?.is_completed;
     }).length;
+    const assigneeField = details.find((f) => f.is_assignee);
+    const mine = ctx.me?.id;
+    const assignedToMe =
+      !!assigneeField &&
+      !!mine &&
+      asStrings(card.data[assigneeField.slug]).includes(mine);
 
     return (
-      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_20rem]" data-testid="card-detail">
-        <div className="flex min-w-0 flex-col gap-5">
+      <div
+        className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]"
+        data-testid="card-detail"
+      >
+        <div className="flex min-w-0 flex-col gap-6">
+          {type.layout !== 'default' && (
+            <CrmHeader
+              card={card}
+              type={type}
+              title={issueTitle(card, ctx.cardTypes)}
+            />
+          )}
           {title && (
-            <div data-testid="issue-title">
-              <FieldEditor field={title} label={t('summary')} value={card.data[title.slug]} members={ctx.members} onCommit={(v) => patch(title.slug, v)} />
+            <div data-testid="issue-title" className="-mx-2">
+              <InlineTitle
+                label={t('summary')}
+                value={
+                  typeof card.data[title.slug] === 'string'
+                    ? (card.data[title.slug] as string)
+                    : ''
+                }
+                disabled={!canWrite}
+                onCommit={(v) => patch(title.slug, v)}
+              />
             </div>
           )}
-          <div className="flex flex-wrap gap-2">
-            {type.icon !== 'subtask' && (
-              <Button size="sm" variant="tertiary" onPress={() => createIssue.open({ listId: primary?.list_id, parentId: card.id, sprintId: primary?.sprint_id })} data-testid="add-child">
+          {type.icon !== 'subtask' && canWrite && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onPress={() =>
+                  createIssue.open({
+                    listId: primary?.list_id,
+                    parentId: card.id,
+                    sprintId: primary?.sprint_id,
+                  })
+                }
+                data-testid="add-child"
+              >
                 <Plus size={14} />
                 {t('addChild')}
               </Button>
-            )}
-          </div>
-          {description && (
-            <div>
-              <FieldEditor field={description} label={t('description')} value={card.data[description.slug]} members={ctx.members} onCommit={(v) => patch(description.slug, v)} />
             </div>
+          )}
+          {description && (
+            <section data-testid="issue-description">
+              {description.type === 'rich' ? (
+                <CollabField
+                  label={t('description')}
+                  cardId={card.id}
+                  slug={description.slug}
+                  value={card.data[description.slug]}
+                  canWrite={canWrite}
+                  onSave={async (doc) => {
+                    // `collab_keep`: this save belongs to the live editing session, so it stays open.
+                    await update.mutateAsync({
+                      id: card.id,
+                      data: {
+                        data: { [description.slug]: doc },
+                        collab_keep: [description.slug],
+                      },
+                    });
+                    await qc.invalidateQueries({ queryKey: ['cards'] });
+                  }}
+                />
+              ) : (
+                <FieldEditor
+                  field={description}
+                  label={t('description')}
+                  value={card.data[description.slug]}
+                  members={ctx.members}
+                  onCommit={(v) => patch(description.slug, v)}
+                />
+              )}
+            </section>
           )}
           {children.length > 0 && (
             <section aria-label={t('childIssues')}>
-              <div className="mb-1 flex items-center justify-between">
+              <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-base font-semibold">{t('childIssues')}</h3>
-                <span className="text-xs text-muted">{t('childProgress', { done, total: children.length })}</span>
+                <span className="text-xs text-muted">
+                  {t('childProgress', { done, total: children.length })}
+                </span>
               </div>
-              <div className="mb-2 h-1.5 overflow-hidden rounded bg-[#DFE1E6]">
-                <div className="h-full bg-[#1F845A]" style={{ width: `${(done / children.length) * 100}%` }} />
+              <div
+                className="mb-3 h-1.5 overflow-hidden rounded-full bg-default"
+                aria-hidden
+              >
+                <div
+                  className="h-full rounded-full bg-success transition-all duration-500"
+                  style={{ width: `${(done / children.length) * 100}%` }}
+                />
               </div>
-              <ul className="divide-y divide-[#DCDFE4] rounded-[3px] border border-[#DCDFE4]">
+              <ul className="divide-y divide-separator overflow-hidden rounded-xl border border-separator">
                 {children.map((c) => {
                   const ct = issueType(c, ctx.cardTypes);
-                  const st = list?.stages.find((s) => s.id === c.lists[0]?.list_stage_id);
+                  const st = list?.stages.find(
+                    (s) => s.id === c.lists[0]?.list_stage_id,
+                  );
                   return (
-                    <li key={c.id} className="flex items-center gap-2 px-3 py-1.5 text-sm">
+                    <li
+                      key={c.id}
+                      className="flex items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-surface-secondary"
+                    >
                       <IssueTypeIcon icon={ct?.icon} color={ct?.color} />
-                      <span className="w-20 text-xs text-[#626F86]">{c.key}</span>
-                      <Link className="min-w-0 flex-1 truncate hover:underline" href={`/workspaces/${workspaceId}/cards/${c.id}`}>
+                      <span className="w-20 shrink-0 text-xs text-muted">
+                        {c.key}
+                      </span>
+                      <Link
+                        className="min-w-0 flex-1 truncate hover:underline"
+                        href={routes.browse(c.key)}
+                      >
                         {issueTitle(c, ctx.cardTypes)}
                       </Link>
-                      {st && list && <Lozenge kind={stageKind(st, list.stages[0]?.id === st.id)}>{st.name}</Lozenge>}
+                      {st && list && (
+                        <Lozenge
+                          kind={stageKind(st, list.stages[0]?.id === st.id)}
+                        >
+                          {st.name}
+                        </Lozenge>
+                      )}
                     </li>
                   );
                 })}
               </ul>
             </section>
           )}
-          <IssueActivity cardId={card.id} projectId={ctx.workspace?.project_id} />
+          <IssueActivity
+            cardId={card.id}
+            projectId={ctx.workspace?.project_id}
+          />
         </div>
 
-        <aside className="flex flex-col gap-4">
+        <aside className="flex flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
           {list && stage && (
             <Dropdown>
-              <Dropdown.Trigger className={buttonVariants({ variant: 'ghost', className: 'h-auto self-start p-0' })} data-testid="status-button" aria-label={t('status')}>
-                <Lozenge kind={stageKind(stage, list.stages[0]?.id === stage.id)} className="gap-1 px-2 py-1 text-xs" trailing={<ChevronDown size={12} />}>
+              <Dropdown.Trigger
+                className={buttonVariants({
+                  variant: 'secondary',
+                  className: 'h-10 w-full justify-between px-3',
+                })}
+                data-testid="status-button"
+                aria-label={t('status')}
+              >
+                <Lozenge
+                  kind={stageKind(stage, list.stages[0]?.id === stage.id)}
+                  className="gap-1 px-2 py-1 text-xs"
+                >
                   {stage.name}
                 </Lozenge>
+                <ChevronDown size={14} className="text-muted" />
               </Dropdown.Trigger>
               <Dropdown.Popover>
                 <Dropdown.Menu
                   aria-label={t('status')}
                   onAction={async (key) => {
                     try {
-                      await putList.mutateAsync({ id: card.id, listId: list.id, data: { stage_id: String(key) } });
+                      await putList.mutateAsync({
+                        id: card.id,
+                        listId: list.id,
+                        data: { stage_id: String(key) },
+                      });
                       await qc.invalidateQueries();
                     } catch (e) {
                       fail(e);
@@ -161,34 +328,74 @@ export function IssueView({
               </Dropdown.Popover>
             </Dropdown>
           )}
-          <section className="rounded-[3px] border border-[#DCDFE4]" aria-label={t('details')}>
-            <h3 className="border-b border-[#DCDFE4] px-4 py-2.5 text-sm font-semibold">{t('details')}</h3>
-            <div className="flex flex-col gap-3 p-4">
+
+          <Panel testId="issue-details">
+            <Panel.Header className="py-3">
+              <Panel.Title>{t('details')}</Panel.Title>
+            </Panel.Header>
+            <div className="inline-fields flex flex-col py-1.5">
               {details.map((f) => (
-                <FieldEditor key={f.id} field={f} value={card.data[f.slug]} members={ctx.members} onCommit={(v) => patch(f.slug, v)} />
+                <DetailRow key={f.id} label={f.name}>
+                  <FieldEditor
+                    field={f}
+                    value={card.data[f.slug]}
+                    members={ctx.members}
+                    hideLabel
+                    onCommit={(v) => patch(f.slug, v)}
+                  />
+                  {f.is_assignee && canWrite && mine && !assignedToMe && (
+                    <button
+                      type="button"
+                      onClick={() => patch(f.slug, f.multiple ? [mine] : mine)}
+                      className="mt-0.5 px-3 text-xs text-accent hover:underline"
+                      data-testid="assign-to-me"
+                    >
+                      {t('assignToMe')}
+                    </button>
+                  )}
+                </DetailRow>
               ))}
               {primary && list?.methodology === 'scrum' && (
-                <SimpleSelect
-                  label={t('sprint')}
-                  value={primary.sprint_id ?? '__backlog'}
-                  onChange={async (v) => {
-                    try {
-                      await putCardSprint(card.id, { list_id: primary.list_id, sprint_id: !v || v === '__backlog' ? null : v });
-                      await qc.invalidateQueries();
-                    } catch (e) {
-                      fail(e);
-                    }
-                  }}
-                  options={[{ value: '__backlog', label: t('backlog') }, ...sprints.filter((s) => s.state !== 'completed' || s.id === primary.sprint_id).map((s) => ({ value: s.id, label: s.name }))]}
-                  testId="sprint-select"
-                />
+                <DetailRow label={t('sprint')}>
+                  <SimpleSelect
+                    hideLabel
+                    label={t('sprint')}
+                    value={primary.sprint_id ?? '__backlog'}
+                    onChange={async (v) => {
+                      try {
+                        await putCardSprint(card.id, {
+                          list_id: primary.list_id,
+                          sprint_id: !v || v === '__backlog' ? null : v,
+                        });
+                        await qc.invalidateQueries();
+                      } catch (e) {
+                        fail(e);
+                      }
+                    }}
+                    options={[
+                      { value: '__backlog', label: t('backlog') },
+                      ...sprints
+                        .filter(
+                          (s) =>
+                            s.state !== 'completed' ||
+                            s.id === primary.sprint_id,
+                        )
+                        .map((s) => ({ value: s.id, label: s.name })),
+                    ]}
+                    testId="sprint-select"
+                  />
+                </DetailRow>
               )}
             </div>
-          </section>
-          <p className="text-xs text-muted">
-            {t('createdAt', { date: formatDate(card.created_at, locale, true) })}
+          </Panel>
+          <p className="px-1 text-xs text-muted">
+            {t('createdAt', {
+              date: formatDate(card.created_at, locale, true),
+            })}
             <br />
-            {t('updatedAt', { date: formatDate(card.updated_at, locale, true) })}
+            {t('updatedAt', {
+              date: formatDate(card.updated_at, locale, true),
+            })}
           </p>
         </aside>
       </div>
@@ -204,8 +411,14 @@ export function IssueView({
         data-testid="watch"
         onPress={async () => {
           try {
-            if (watching) await removeWatcher.mutateAsync({ params: { resource_type: 'card', resource_id: card.id } });
-            else await addWatcher.mutateAsync({ data: { resource_type: 'card', resource_id: card.id } });
+            if (watching)
+              await removeWatcher.mutateAsync({
+                params: { resource_type: 'card', resource_id: card.id },
+              });
+            else
+              await addWatcher.mutateAsync({
+                data: { resource_type: 'card', resource_id: card.id },
+              });
             await qc.invalidateQueries();
           } catch (e) {
             fail(e);
@@ -215,11 +428,31 @@ export function IssueView({
         {watching ? <EyeOff size={14} /> : <Eye size={14} />}
         {watching ? t('unwatch') : t('watch')}
       </Button>
-      <Button isIconOnly size="sm" variant="ghost" aria-label={t('copyLink')} onPress={() => navigator.clipboard?.writeText(`${window.location.origin}/workspaces/${workspaceId}/cards/${card.id}`).then(() => toast.success(t('linkCopied')))}>
+      <Button
+        isIconOnly
+        size="sm"
+        variant="ghost"
+        aria-label={t('copyLink')}
+        onPress={() =>
+          navigator.clipboard
+            ?.writeText(
+              `${window.location.origin}${BASE_PATH}${routes.browse(card.key)}`,
+            )
+            .then(() => toast.success(t('linkCopied')))
+        }
+      >
         <Link2 size={16} />
       </Button>
       <Dropdown>
-        <Dropdown.Trigger className={buttonVariants({ variant: 'ghost', isIconOnly: true, size: 'sm' })} aria-label={t('more')} data-testid="issue-menu">
+        <Dropdown.Trigger
+          className={buttonVariants({
+            variant: 'ghost',
+            isIconOnly: true,
+            size: 'sm',
+          })}
+          aria-label={t('more')}
+          data-testid="issue-menu"
+        >
           <MoreHorizontal size={16} />
         </Dropdown.Trigger>
         <Dropdown.Popover>
@@ -238,7 +471,10 @@ export function IssueView({
             }}
           >
             <Dropdown.Item id="delete" textValue={t('delete')} variant="danger">
-              <span className="flex items-center gap-2" data-testid="delete-card">
+              <span
+                className="flex items-center gap-2"
+                data-testid="delete-card"
+              >
                 <Trash2 size={14} />
                 {t('delete')}
               </span>
@@ -249,19 +485,47 @@ export function IssueView({
     </div>
   );
 
+  const wsKey = ctx.workspace?.key_prefix;
+  const listBrief = ctx.lists.find((l) => l.id === primary?.list_id);
   const crumb = card && type && (
-    <div className="flex items-center gap-2 text-sm text-[#44546F]">
+    <nav
+      aria-label={t('breadcrumb')}
+      className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm text-muted"
+    >
+      {variant === 'page' && wsKey && (
+        <>
+          <Link href={routes.workspace(wsKey)} className="hover:underline">
+            {ctx.workspace?.name}
+          </Link>
+          <ChevronRight size={12} aria-hidden />
+          {listBrief && (
+            <>
+              <Link
+                href={routes.project(wsKey, listBrief.slug)}
+                className="hover:underline"
+              >
+                {listBrief.name}
+              </Link>
+              <ChevronRight size={12} aria-hidden />
+            </>
+          )}
+        </>
+      )}
       <IssueTypeIcon icon={type.icon} color={type.color} title={type.name} />
-      <Link href={`/workspaces/${workspaceId}/cards/${card.id}`} className="font-medium hover:underline" data-testid="issue-key">
+      <Link
+        href={routes.browse(card.key)}
+        className="font-medium hover:underline"
+        data-testid="issue-key"
+      >
         {card.key}
       </Link>
-    </div>
+    </nav>
   );
 
   if (variant === 'page') {
     return (
       <div className="mx-auto max-w-6xl p-6">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-5 flex items-center justify-between gap-4">
           {crumb}
           {actions}
         </div>
@@ -291,3 +555,23 @@ export function IssueView({
   );
 }
 
+/** Label on the left, value on the right: one line of the details panel. */
+function DetailRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-start gap-1 px-3 py-0.5">
+      <span
+        className="truncate pt-2.5 text-xs font-medium text-muted"
+        title={label}
+      >
+        {label}
+      </span>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}

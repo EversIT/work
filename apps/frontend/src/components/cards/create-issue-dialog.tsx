@@ -1,10 +1,11 @@
 'use client';
 
+import { routes } from '../../lib/routes';
 import { Button, Checkbox, Label, toast } from '@heroui/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useCreateCard, putCardSprint } from '../../api/generated/cards/cards';
 import { useGetList } from '../../api/generated/lists/lists';
 import { body, errorKind, serverMessage } from '../../lib/api';
@@ -13,7 +14,18 @@ import { JiraDialog } from '../ui/jira-dialog';
 import { SimpleSelect } from '../ui/inputs';
 import { FieldInput } from './field-input';
 
-const ORDER = ['title', 'description', 'assignee', 'reporter', 'priority', 'labels', 'story_points', 'due_at', 'starts_at', 'estimate_hours'];
+const ORDER = [
+  'title',
+  'description',
+  'assignee',
+  'reporter',
+  'priority',
+  'labels',
+  'story_points',
+  'due_at',
+  'starts_at',
+  'estimate_hours',
+];
 
 function rank(slug: string) {
   const i = ORDER.indexOf(slug);
@@ -47,7 +59,9 @@ export function CreateIssueDialog({
       return ctx.lists[0]?.id ?? null;
     }
   });
-  const list = body(useGetList(listId ?? '', { query: { enabled: !!listId } }).data);
+  const list = body(
+    useGetList(listId ?? '', { query: { enabled: !!listId } }).data,
+  );
   const [typeId, setTypeId] = useState<string | null>(null);
   const [data, setData] = useState<Record<string, unknown>>({});
   const [another, setAnother] = useState(false);
@@ -57,24 +71,49 @@ export function CreateIssueDialog({
     if (parentId) return ctx.cardTypes.find((c) => c.icon === 'subtask')?.id;
     return list?.default_card_type_id ?? ctx.cardTypes[0]?.id;
   }, [parentId, list, ctx.cardTypes]);
-  const activeType = ctx.cardTypes.find((c) => c.id === (typeId ?? defaultType));
-  const fields = useMemo(() => [...(activeType?.fields ?? [])].filter((f) => !['stage', 'card'].includes(f.type)).sort((a, b) => rank(a.slug) - rank(b.slug)), [activeType]);
+  const activeType = ctx.cardTypes.find(
+    (c) => c.id === (typeId ?? defaultType),
+  );
+  const fields = useMemo(
+    () =>
+      [...(activeType?.fields ?? [])]
+        .filter((f) => !['stage', 'card'].includes(f.type))
+        .sort((a, b) => rank(a.slug) - rank(b.slug)),
+    [activeType],
+  );
   const members = ctx.members;
 
   // Reporter defaults to the person creating the issue, like Jira.
-  useEffect(() => {
-    const reporter = fields.find((f) => f.slug === 'reporter');
-    if (reporter && ctx.me && data.reporter === undefined) setData((d) => ({ ...d, reporter: reporter.multiple ? [ctx.me?.id] : ctx.me?.id }));
-  }, [fields, ctx.me, data.reporter]);
+  const reporterField = fields.find((f) => f.slug === 'reporter');
+  const values: Record<string, unknown> =
+    reporterField && ctx.me && data.reporter === undefined
+      ? { ...data, reporter: reporterField.multiple ? [ctx.me.id] : ctx.me.id }
+      : data;
 
   const submit = async () => {
     setError(null);
     if (!listId || !activeType) return;
     try {
-      const payload = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== ''));
-      const res = await create.mutateAsync({ id: listId, data: { data: payload, card_type_id: activeType.id, stage_id: stageId, parent_id: parentId } });
+      const payload = Object.fromEntries(
+        Object.entries(values).filter(
+          ([, v]) => v !== null && v !== undefined && v !== '',
+        ),
+      );
+      const res = await create.mutateAsync({
+        id: listId,
+        data: {
+          data: payload,
+          card_type_id: activeType.id,
+          stage_id: stageId,
+          parent_id: parentId,
+        },
+      });
       if (res.status !== 200) return;
-      if (sprintId) await putCardSprint(res.data.id, { list_id: listId, sprint_id: sprintId });
+      if (sprintId)
+        await putCardSprint(res.data.id, {
+          list_id: listId,
+          sprint_id: sprintId,
+        });
       try {
         localStorage.setItem('work.lastList', listId);
       } catch {
@@ -84,7 +123,7 @@ export function CreateIssueDialog({
       toast.success(
         <span>
           {t('created')}{' '}
-          <Link className="underline" href={`/workspaces/${ctx.workspaceId}/cards/${res.data.id}`}>
+          <Link className="underline" href={routes.browse(res.data.key)}>
             {res.data.key}
           </Link>
         </span>,
@@ -110,7 +149,11 @@ export function CreateIssueDialog({
       testId="create-issue"
       footer={
         <>
-          <Checkbox isSelected={another} onChange={setAnother} className="mr-auto">
+          <Checkbox
+            isSelected={another}
+            onChange={setAnother}
+            className="mr-auto"
+          >
             <Checkbox.Control>
               <Checkbox.Indicator />
             </Checkbox.Control>
@@ -121,7 +164,11 @@ export function CreateIssueDialog({
           <Button variant="tertiary" onPress={onClose}>
             {t('cancel')}
           </Button>
-          <Button onPress={submit} isPending={create.isPending} data-testid="create-issue-submit">
+          <Button
+            onPress={submit}
+            isPending={create.isPending}
+            data-testid="create-issue-submit"
+          >
             {t('createButton')}
           </Button>
         </>
@@ -135,24 +182,60 @@ export function CreateIssueDialog({
         }}
       >
         <p className="text-xs text-muted">{t('requiredHint')}</p>
-        {error && <p className="rounded bg-[#FFECEB] px-3 py-2 text-sm text-[#AE2E24]">{error}</p>}
+        {error && (
+          <p className="rounded bg-danger-soft px-3 py-2 text-sm text-danger">
+            {error}
+          </p>
+        )}
         {!initialList && (
-          <SimpleSelect label={t('project')} value={listId} onChange={(v) => { setListId(v); setTypeId(null); }} options={ctx.lists.map((l) => ({ value: l.id, label: `${l.name} (${l.spaceName})` }))} testId="create-project" />
+          <SimpleSelect
+            label={t('project')}
+            value={listId}
+            onChange={(v) => {
+              setListId(v);
+              setTypeId(null);
+            }}
+            options={ctx.lists.map((l) => ({
+              value: l.id,
+              label: `${l.name} (${l.spaceName})`,
+            }))}
+            testId="create-project"
+          />
         )}
         <SimpleSelect
           label={t('issueType')}
           value={activeType?.id ?? null}
           onChange={(v) => v && setTypeId(v)}
-          options={ctx.cardTypes.filter((c) => !parentId || c.icon === 'subtask').map((c) => ({ value: c.id, label: c.name }))}
+          options={ctx.cardTypes
+            .filter((c) => !parentId || c.icon === 'subtask')
+            .map((c) => ({ value: c.id, label: c.name }))}
           testId="create-type"
         />
         {fields.map((f) => (
           <div key={f.id}>
-            <FieldInput field={f} value={data[f.slug]} members={members} onChange={(v) => setData((d) => ({ ...d, [f.slug]: v }))} label={f.is_title ? `${f.name} *` : f.name} />
+            <FieldInput
+              field={f}
+              value={values[f.slug]}
+              members={members}
+              onChange={(v) => setData((d) => ({ ...d, [f.slug]: v }))}
+              label={f.is_title ? `${f.name} *` : f.name}
+            />
             {f.id === assignee?.id && ctx.me && (
-              <button type="button" className="mt-1 text-xs text-[#0C66E4] hover:underline" onClick={() => setData((d) => ({ ...d, [f.slug]: f.multiple ? [ctx.me?.id] : ctx.me?.id }))}>
+              <Button
+                type="button"
+
+                onPress={() =>
+                  setData((d) => ({
+                    ...d,
+                    [f.slug]: f.multiple ? [ctx.me?.id] : ctx.me?.id,
+                  }))
+                }
+                variant="ghost"
+                size="sm"
+                className="mt-1 h-auto px-0 text-xs text-accent"
+              >
                 {t('assignToMe')}
-              </button>
+              </Button>
             )}
           </div>
         ))}
