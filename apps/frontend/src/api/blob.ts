@@ -1,8 +1,8 @@
-import { DEMO } from '../demo';
+import { isDemo } from '../demo';
 import { currentAccessToken, refreshAccessToken } from './fetcher';
 
 export async function apiFetchBlob(url: string): Promise<Blob> {
-  if (DEMO) return new Blob([]);
+  if (isDemo()) return new Blob([]);
   const go = () =>
     fetch(url, {
       headers: currentAccessToken()

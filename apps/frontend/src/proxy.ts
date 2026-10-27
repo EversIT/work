@@ -9,10 +9,7 @@ export default function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   // The demo has no backend: its API calls never leave the browser.
-  if (
-    pathname.startsWith('/api/v1/') &&
-    process.env.NEXT_PUBLIC_DEMO !== 'true'
-  ) {
+  if (pathname.startsWith('/api/v1/') && process.env.DEMO_MODE !== 'true') {
     const target = new URL(pathname + search, BACKEND_URL);
     return NextResponse.rewrite(target);
   }

@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useMemo } from 'react';
 import { useWorkspaceByKey } from '../../lib/hooks';
 import { parseIssueKey } from '../../lib/routes';
-import { DEMO } from '../../demo';
+import { isDemo } from '../../demo';
 import { CreateIssueProvider } from './create-issue-context';
 import { CreateProjectProvider } from './create-project-context';
 import { SideNav } from './side-nav';
@@ -49,7 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const chrome = (inner: React.ReactNode) => (
     <div className="flex min-h-screen flex-col bg-surface text-foreground">
-      {DEMO && (
+      {isDemo() && (
         <p
           className="bg-accent px-3 py-1 text-center text-xs text-accent-foreground"
           data-testid="demo-banner"

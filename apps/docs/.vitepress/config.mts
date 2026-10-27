@@ -2,10 +2,10 @@ import { defineConfig } from 'vitepress';
 
 // The pages are the markdown files in `src/`.
 //   DOCS_BASE      path the site is served under (default `/`; GitHub Pages project sites need `/<repo>/`)
-//   DOCS_DEMO_URL  where the demo runs (default `/demo`, where the docs image serves it); set it
-//                  to an empty value for a site that has no demo, such as GitHub Pages
+//   DOCS_DEMO_URL  address of a demo (the frontend image started with DEMO_MODE=true); without it the
+//                  navigation has no "Live demo" link
 const base = process.env.DOCS_BASE ?? '/';
-const demo = process.env.DOCS_DEMO_URL ?? '/demo';
+const demo = process.env.DOCS_DEMO_URL ?? '';
 
 export default defineConfig({
   title: 'work',

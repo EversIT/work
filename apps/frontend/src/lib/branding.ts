@@ -1,3 +1,5 @@
+import { isDemo } from '../demo';
+
 export type Branding = {
   title: string;
   description: string;
@@ -19,6 +21,8 @@ export const DEFAULT_BRANDING: Branding = {
  * (the backend answer is public). If the backend cannot be reached the defaults keep pages working.
  */
 export async function getBranding(): Promise<Branding> {
+  // The demo has no backend to ask.
+  if (isDemo()) return DEFAULT_BRANDING;
   const backend = process.env.BACKEND_URL || 'http://localhost:3001';
   try {
     const res = await fetch(`${backend}/api/v1/branding`, {
