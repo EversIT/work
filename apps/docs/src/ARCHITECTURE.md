@@ -25,7 +25,7 @@ browser ──► Next.js (:3000) ──/api/v1/*──► Rust backend (127.0.0
 | `apps/frontend`     | the Next.js app (see below)                                      |
 | `apps/frontend-e2e` | Playwright browser tests                                         |
 | `deploy/`           | the compose file and `.env.example`                              |
-| `packages/docker/`  | Dockerfiles (backend, frontend, docs) and nginx config           |
+| `packages/docker/`  | Dockerfiles (backend and frontend)                               |
 | `apps/docs/`        | documentation (VitePress site, pages in `src/`)                  |
 | `scripts/`          | repository tooling: commit and PR-title lint, publishing helpers |
 | `.github/`          | CI workflows, issue and pull request templates                   |
