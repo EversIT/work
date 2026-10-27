@@ -95,8 +95,7 @@
   "release": {
     "projects": ["work"],
     "version": {
-      "conventionalCommits": true,
-      "currentVersionResolver": "git-tag"
+      "conventionalCommits": true
     },
     "changelog": {
       "workspaceChangelog": {
