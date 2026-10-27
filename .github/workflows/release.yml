@@ -57,8 +57,8 @@ jobs:
           FIRST_RELEASE: ${{ inputs.first_release }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          args=(--yes --skip-publish)
-          if [ -n "$VERSION" ] && [ "$VERSION" != "auto" ]; then args+=(--specifier "$VERSION"); fi
+          args=(--skip-publish)
+          if [ -n "$VERSION" ] && [ "$VERSION" != "auto" ]; then args+=("$VERSION"); fi
           if [ "$FIRST_RELEASE" = "true" ]; then args+=(--first-release); fi
           npx nx release "${args[@]}"
 
