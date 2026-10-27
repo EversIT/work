@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { register } from './helpers';
 
-// The first account of an instance administers it, and this file runs first (files run in
-// alphabetical order, one worker), so its user is that administrator on a fresh stack.
+// The first account of an instance administers it, and this file runs first and alone (the
+// `admin` project in playwright.config.ts), so its user is that administrator on a fresh stack.
 const PNG_1X1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
   'base64',
