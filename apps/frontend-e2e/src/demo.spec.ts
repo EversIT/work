@@ -125,3 +125,32 @@ test('linked work items: every relationship is accepted', async ({ page }) => {
     await expect(links.getByTestId(`links-${section}`)).toContainText(target);
   }
 });
+
+test('a comment can be edited, and the edit keeps its place', async ({
+  page,
+}) => {
+  await page.goto(BURNDOWN);
+  const comments = page.getByTestId('activities');
+  await comments
+    .locator('li', { hasText: 'I would start with the ideal line' })
+    .getByTestId('edit-comment')
+    .click();
+  // Only one comment is in edit mode, so the editor needs no text to be found by.
+  await comments
+    .getByTestId('comment-edit-editor')
+    .locator('[contenteditable]')
+    .fill('Edited: start with the ideal line');
+  await comments.getByTestId('comment-edit-save').click();
+  await expect(comments.getByTestId('comment-edit')).toBeHidden();
+  await expect(comments).toContainText('Edited: start with the ideal line');
+  await expect(comments).not.toContainText('I would start with the ideal line');
+
+  // Cancel leaves the text alone.
+  await comments
+    .locator('li', { hasText: 'Edited: start' })
+    .getByTestId('edit-comment')
+    .click();
+  await comments.getByRole('button', { name: 'Cancel' }).click();
+  await expect(comments.getByTestId('comment-edit')).toBeHidden();
+  await expect(comments).toContainText('Edited: start with the ideal line');
+});
