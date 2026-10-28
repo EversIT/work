@@ -66,7 +66,7 @@ pub struct TreeOut {
 #[utoipa::path(get, operation_id = "getWorkspaceTree", path = "/workspaces/{id}/tree", tag = "spaces",
     params(("id" = Uuid, Path)), responses((status = 200, body = TreeOut), (status = 404)),
     security(("bearer" = [])))]
-async fn tree(
+pub(crate) async fn tree(
     State(s): State<AppState>,
     user: AuthUser,
     Path(wid): Path<Uuid>,

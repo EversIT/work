@@ -36,6 +36,7 @@ export default defineConfig({
           { text: 'Upgrade and backup', link: '/operate' },
           { text: 'People and access', link: '/access' },
           { text: 'Using the API', link: '/api' },
+          { text: 'AI assistant and MCP', link: '/ai' },
         ],
       },
       {

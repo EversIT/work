@@ -46,7 +46,7 @@ pub fn router() -> OpenApiRouter<AppState> {
 }
 
 /// Admin rights are read from the database on every call, never from the token.
-async fn require_admin(s: &AppState, user: &AuthUser) -> ApiResult<()> {
+pub(crate) async fn require_admin(s: &AppState, user: &AuthUser) -> ApiResult<()> {
     user.require_session()?;
     let ok: Option<(bool,)> = sqlx::query_as("SELECT is_instance_admin FROM users WHERE id = $1 AND deleted_at IS NULL AND disabled_at IS NULL")
         .bind(user.id)
@@ -58,7 +58,7 @@ async fn require_admin(s: &AppState, user: &AuthUser) -> ApiResult<()> {
     }
 }
 
-async fn audit(
+pub(crate) async fn audit(
     s: &AppState,
     actor: Uuid,
     action: &str,

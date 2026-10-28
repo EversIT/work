@@ -4,7 +4,7 @@
 //! from this structure (no HTML is stored or injected anywhere), so an accepted document cannot carry
 //! script. Plain strings stay valid for content written before the editor existed.
 
-use serde_json::Value;
+use serde_json::{json, Value};
 
 const MAX_BYTES: usize = 200_000;
 const MAX_DEPTH: usize = 12;
@@ -167,6 +167,318 @@ pub fn validate_value(v: &Value) -> Result<(), String> {
     }
 }
 
+// ---- plain text and Markdown <-> document ---------------------------------------------------
+//
+// Machines (the MCP server, the AI assistant) talk Markdown, the editor stores a document. These
+// two functions translate between them for the part of Markdown the editor can show. Everything
+// `from_markdown` returns has passed `validate_doc`.
+
+/// The text of a rich-text value as Markdown. Legacy plain text comes back unchanged.
+pub fn to_markdown(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        Value::Object(_) => blocks_to_md(v, 0).trim_end().to_owned(),
+        _ => String::new(),
+    }
+}
+
+fn inline_to_md(nodes: &[Value]) -> String {
+    let mut out = String::new();
+    for n in nodes {
+        match n.get("type").and_then(Value::as_str) {
+            Some("text") => {
+                let mut t = n
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_owned();
+                for m in n
+                    .get("marks")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                {
+                    t = match m.get("type").and_then(Value::as_str) {
+                        Some("bold") => format!("**{t}**"),
+                        Some("italic") => format!("_{t}_"),
+                        Some("strike") => format!("~~{t}~~"),
+                        Some("code") => format!("`{t}`"),
+                        Some("link") => {
+                            let href = m
+                                .pointer("/attrs/href")
+                                .and_then(Value::as_str)
+                                .unwrap_or_default();
+                            format!("[{t}]({href})")
+                        }
+                        _ => t,
+                    };
+                }
+                out.push_str(&t);
+            }
+            Some("hardBreak") => out.push('\n'),
+            _ => {}
+        }
+    }
+    out
+}
+
+fn children(v: &Value) -> &[Value] {
+    v.get("content")
+        .and_then(Value::as_array)
+        .map_or(&[], Vec::as_slice)
+}
+
+fn blocks_to_md(node: &Value, depth: usize) -> String {
+    let pad = "  ".repeat(depth);
+    let mut blocks: Vec<String> = vec![];
+    for b in children(node) {
+        let text = match b.get("type").and_then(Value::as_str) {
+            Some("paragraph") => inline_to_md(children(b)),
+            Some("heading") => {
+                let level = b
+                    .pointer("/attrs/level")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(1);
+                format!(
+                    "{} {}",
+                    "#".repeat(level.clamp(1, 3) as usize),
+                    inline_to_md(children(b))
+                )
+            }
+            Some(kind @ ("bulletList" | "orderedList")) => {
+                let start = b
+                    .pointer("/attrs/start")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(1);
+                children(b)
+                    .iter()
+                    .enumerate()
+                    .map(|(i, item)| {
+                        let marker = if kind == "bulletList" {
+                            "-".to_owned()
+                        } else {
+                            format!("{}.", start + i as u64)
+                        };
+                        let body = blocks_to_md(item, depth + 1);
+                        let mut lines = body.trim_end().lines();
+                        let first = lines.next().unwrap_or_default().trim_start().to_owned();
+                        let rest: String = lines.map(|l| format!("\n{l}")).collect();
+                        format!("{pad}{marker} {first}{rest}")
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            }
+            Some("blockquote") => blocks_to_md(b, depth)
+                .trim_end()
+                .lines()
+                .map(|l| format!("> {l}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            Some("codeBlock") => {
+                let lang = b
+                    .pointer("/attrs/language")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                let code: String = children(b)
+                    .iter()
+                    .filter_map(|t| t.get("text").and_then(Value::as_str))
+                    .collect();
+                format!("```{lang}\n{code}\n```")
+            }
+            Some("horizontalRule") => "---".to_owned(),
+            _ => continue,
+        };
+        blocks.push(text);
+    }
+    // Inside a list item the blocks sit on consecutive lines; at the top they are paragraphs apart.
+    blocks.join(if depth == 0 { "\n\n" } else { "\n" })
+}
+
+/// Lines longer than this stay plain text: the inline scan below looks ahead for closing marks,
+/// and bounding the line keeps that cheap whatever a client sends.
+const MAX_INLINE_LINE: usize = 1_000;
+
+/// Marks of the inline Markdown we read: `**bold**`, `` `code` `` and `[text](https://...)`.
+fn inline_from_md(line: &str) -> Vec<Value> {
+    if line.len() > MAX_INLINE_LINE {
+        return vec![json!({"type": "text", "text": line})];
+    }
+    let mut out: Vec<Value> = vec![];
+    let mut plain = String::new();
+    let flush = |plain: &mut String, out: &mut Vec<Value>| {
+        if !plain.is_empty() {
+            out.push(json!({"type": "text", "text": std::mem::take(plain)}));
+        }
+    };
+    let mut i = 0; // byte offset, always on a char boundary
+    while i < line.len() {
+        let rest = &line[i..];
+        let marked = if let Some((inner, _)) =
+            rest.strip_prefix("**").and_then(|r| r.split_once("**"))
+        {
+            Some((inner, json!({"type": "bold"}), inner.len() + 4))
+        } else if let Some((inner, _)) = rest.strip_prefix('`').and_then(|r| r.split_once('`')) {
+            Some((inner, json!({"type": "code"}), inner.len() + 2))
+        } else {
+            None
+        };
+        if let Some((inner, mark, len)) = marked.filter(|(inner, ..)| !inner.is_empty()) {
+            flush(&mut plain, &mut out);
+            out.push(json!({"type": "text", "text": inner, "marks": [mark]}));
+            i += len;
+            continue;
+        }
+        let link = rest
+            .strip_prefix('[')
+            .and_then(|r| r.split_once("]("))
+            .and_then(|(label, after)| after.split_once(')').map(|(href, _)| (label, href)))
+            .filter(|(label, href)| !label.is_empty() && !label.contains('[') && safe_href(href));
+        if let Some((label, href)) = link {
+            flush(&mut plain, &mut out);
+            out.push(json!({"type": "text", "text": label,
+                "marks": [{"type": "link", "attrs": {"href": href.trim()}}]}));
+            i += label.len() + href.len() + 4;
+            continue;
+        }
+        let ch = rest.chars().next().expect("i < len");
+        plain.push(ch);
+        i += ch.len_utf8();
+    }
+    flush(&mut plain, &mut out);
+    out
+}
+
+fn paragraph(lines: &[&str]) -> Value {
+    let mut content = vec![];
+    for (i, l) in lines.iter().enumerate() {
+        if i > 0 {
+            content.push(json!({"type": "hardBreak"}));
+        }
+        content.extend(inline_from_md(l));
+    }
+    if content.is_empty() {
+        json!({"type": "paragraph"})
+    } else {
+        json!({"type": "paragraph", "content": content})
+    }
+}
+
+fn list_marker(line: &str) -> Option<(bool, &str)> {
+    let t = line.trim_start();
+    if let Some(r) = t.strip_prefix("- ").or_else(|| t.strip_prefix("* ")) {
+        return Some((false, r));
+    }
+    let digits = t.bytes().take_while(u8::is_ascii_digit).count();
+    if digits > 0 && digits <= 4 {
+        if let Some(r) = t[digits..].strip_prefix(". ") {
+            return Some((true, r));
+        }
+    }
+    None
+}
+
+/// Turns Markdown (headings, lists, quotes, code fences, bold, code, links) into a document the
+/// editor shows. Anything else stays text. The result is validated; `Err` means it was too large.
+pub fn from_markdown(text: &str) -> Result<Value, String> {
+    if text.len() > MAX_BYTES {
+        return Err("text is too large".into());
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    let mut blocks: Vec<Value> = vec![];
+    let mut para: Vec<&str> = vec![];
+    let mut i = 0;
+    macro_rules! flush_para {
+        () => {
+            if !para.is_empty() {
+                blocks.push(paragraph(&para));
+                para.clear();
+            }
+        };
+    }
+    while i < lines.len() {
+        let line = lines[i];
+        let t = line.trim();
+        if t.is_empty() {
+            flush_para!();
+            i += 1;
+        } else if let Some(lang) = t.strip_prefix("```") {
+            flush_para!();
+            let lang = lang.trim();
+            let mut code = vec![];
+            i += 1;
+            while i < lines.len() && !lines[i].trim().starts_with("```") {
+                code.push(lines[i]);
+                i += 1;
+            }
+            i += 1; // the closing fence
+            let mut node = json!({"type": "codeBlock"});
+            if !lang.is_empty()
+                && lang.len() <= 32
+                && lang
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "+-_#.".contains(c))
+            {
+                node["attrs"] = json!({"language": lang});
+            }
+            if !code.is_empty() {
+                node["content"] = json!([{"type": "text", "text": code.join("\n")}]);
+            }
+            blocks.push(node);
+        } else if t.starts_with('#') && t.trim_start_matches('#').starts_with(' ') {
+            flush_para!();
+            let level = t.chars().take_while(|c| *c == '#').count().min(3);
+            blocks.push(json!({"type": "heading", "attrs": {"level": level},
+                "content": inline_from_md(t.trim_start_matches('#').trim())}));
+            i += 1;
+        } else if let Some((ordered, _)) = list_marker(line) {
+            flush_para!();
+            let mut items = vec![];
+            while i < lines.len() {
+                match list_marker(lines[i]) {
+                    Some((o, item)) if o == ordered => {
+                        items.push(json!({"type": "listItem", "content": [paragraph(&[item])]}));
+                        i += 1;
+                    }
+                    _ => break,
+                }
+            }
+            blocks.push(if ordered {
+                json!({"type": "orderedList", "attrs": {"start": 1}, "content": items})
+            } else {
+                json!({"type": "bulletList", "content": items})
+            });
+        } else if let Some(q) = t.strip_prefix("> ").or_else(|| t.strip_prefix('>')) {
+            flush_para!();
+            let mut quoted = vec![q.trim()];
+            i += 1;
+            while i < lines.len() {
+                match lines[i].trim().strip_prefix('>') {
+                    Some(r) => {
+                        quoted.push(r.trim());
+                        i += 1;
+                    }
+                    None => break,
+                }
+            }
+            blocks.push(json!({"type": "blockquote", "content": [paragraph(&quoted)]}));
+        } else if matches!(t, "---" | "***" | "___") {
+            flush_para!();
+            blocks.push(json!({"type": "horizontalRule"}));
+            i += 1;
+        } else {
+            para.push(t);
+            i += 1;
+        }
+    }
+    flush_para!();
+    if blocks.is_empty() {
+        blocks.push(json!({"type": "paragraph"}));
+    }
+    let doc = json!({"type": "doc", "content": blocks});
+    validate_doc(&doc)?;
+    Ok(doc)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -246,5 +558,32 @@ mod tests {
             json!([{"type": "paragraph", "content": [{"type": "text", "text": big}]}])
         ))
         .is_err());
+    }
+
+    #[test]
+    fn markdown_roundtrips_for_what_the_editor_shows() {
+        let md = "# Title\n\nSome **bold** text with `code` and a [link](https://example.test).\n\n- one\n- two\n\n1. first\n2. second\n\n> quoted\n\n```rust\nfn main() {}\n```";
+        let d = from_markdown(md).unwrap();
+        assert_eq!(validate_doc(&d), Ok(()));
+        assert_eq!(to_markdown(&d), md);
+    }
+
+    #[test]
+    fn markdown_never_yields_unsafe_links_or_unknown_nodes() {
+        let d = from_markdown(
+            "[x](javascript:alert(1)) and <script>alert(1)</script> ![i](https://x.test/a.png)",
+        )
+        .unwrap();
+        assert_eq!(validate_doc(&d), Ok(()));
+        // It stays visible as text, but never becomes a link; an image becomes a plain https link.
+        assert!(!d.to_string().contains("\"href\":\"javascript"), "{d}");
+        assert!(
+            d.to_string().contains("\"href\":\"https://x.test/a.png\""),
+            "{d}"
+        );
+        assert_eq!(to_markdown(&json!("legacy")), "legacy");
+        assert_eq!(to_markdown(&json!(null)), "");
+        assert!(from_markdown(&"x".repeat(250_000)).is_err());
+        assert_eq!(validate_doc(&from_markdown("").unwrap()), Ok(()));
     }
 }

@@ -12,6 +12,8 @@ import { body, errorKind, serverMessage } from '../../lib/api';
 import { useWorkspaceCtx } from '../shell/workspace-context';
 import { JiraDialog } from '../ui/jira-dialog';
 import { SimpleSelect } from '../ui/inputs';
+import { plainText } from '../../lib/rich';
+import { AiCreateHelper } from './ai-create';
 import { FieldInput } from './field-input';
 
 const ORDER = [
@@ -239,6 +241,26 @@ export function CreateIssueDialog({
             )}
           </div>
         ))}
+        {ctx.workspace && (
+          <AiCreateHelper
+            workspaceId={ctx.workspace.id}
+            cardTypeId={activeType?.id}
+            kind={activeType?.name}
+            title={String(
+              values[fields.find((f) => f.is_title)?.slug ?? ''] ?? '',
+            )}
+            description={plainText(
+              values[fields.find((f) => f.is_description)?.slug ?? ''] ?? '',
+            )}
+            filled={Object.entries(values)
+              .filter(([, v]) => v !== null && v !== undefined && v !== '')
+              .map(([k]) => k)}
+            descriptionSlug={
+              fields.find((f) => f.is_description && f.type === 'rich')?.slug
+            }
+            onApply={(slug, value) => setData((d) => ({ ...d, [slug]: value }))}
+          />
+        )}
       </form>
     </JiraDialog>
   );

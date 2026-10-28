@@ -30,6 +30,9 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
+import { useGetList } from '../../api/generated/lists/lists';
+import type { RuleLookups } from '../../lib/automation-text';
+import { AiRuleBar } from './ai-rule';
 import {
   useCreateAutomation,
   useGetAutomation,
@@ -92,12 +95,15 @@ export function AutomationBuilder({
   workspaceId,
   id,
   listId,
+  describe,
 }: {
   workspaceId: string;
   /** `new`, or the id of the rule. */
   id: string;
   /** The project the rule was opened from; it is the scope of a new rule. */
   listId?: string;
+  /** A sentence to draft the rule from ("Create with AI" in the list). */
+  describe?: string;
 }) {
   const existing = useGetAutomation(id, { query: { enabled: id !== 'new' } });
   const rule = body(existing.data);
@@ -113,6 +119,7 @@ export function AutomationBuilder({
       workspaceId={workspaceId}
       rule={rule}
       listId={listId}
+      describe={describe}
     />
   );
 }
@@ -121,10 +128,12 @@ function BuilderInner({
   workspaceId,
   rule,
   listId,
+  describe,
 }: {
   workspaceId: string;
   rule?: AutomationOut;
   listId?: string;
+  describe?: string;
 }) {
   const t = useTranslations('automations');
   const te = useTranslations('errors');
@@ -192,6 +201,9 @@ function BuilderInner({
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
+  const scopeList = body(
+    useGetList(draft.list ?? '', { query: { enabled: !!draft.list } }).data,
+  );
   const listName = lists.find((l) => l.id === draft.list);
   const wsKey = workspace?.key_prefix ?? '';
   const settingsPath = (() => {
@@ -379,6 +391,29 @@ function BuilderInner({
           </Button>
         </div>
       </header>
+      <AiRuleBar
+        rule={{
+          trigger_type: draft.trigger_type,
+          trigger_config: draft.trigger_config,
+          steps: draft.steps,
+        }}
+        lookups={{
+          fields,
+          stages: scopeList?.stages ?? [],
+          members: members as RuleLookups['members'],
+        }}
+        initialText={describe}
+        onDraft={(r) => {
+          setDraft({
+            ...draft,
+            trigger_type: r.trigger_type,
+            trigger_config: r.trigger_config,
+            steps: r.steps,
+          });
+          setKeys(r.steps.map(() => nextKey()));
+          setSelected('trigger');
+        }}
+      />
       {error && (
         <p
           role="alert"

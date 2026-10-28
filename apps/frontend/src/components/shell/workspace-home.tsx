@@ -12,6 +12,7 @@ import { useListMyIssues } from '../../api/generated/cards/cards';
 import { body } from '../../lib/api';
 import { issueTitle, issueType } from '../../lib/issue';
 import { IssueTypeIcon, PriorityIcon } from '../jira/issue-ui';
+import { CatchMeUp } from './catch-me-up';
 import { useCreateProject } from './create-project-context';
 import { useWorkspaceCtx } from './workspace-context';
 
@@ -39,12 +40,16 @@ export function WorkspaceHome({ workspaceId }: { workspaceId: string }) {
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-8 px-6 py-6">
-      <h1
-        className="text-2xl font-medium text-foreground"
-        data-testid="workspace-title"
-      >
-        {ctx.workspace?.name}
-      </h1>
+      <header>
+        <h1
+          className="text-2xl font-medium text-foreground"
+          data-testid="workspace-title"
+        >
+          {ctx.workspace?.name}
+        </h1>
+        <p className="mt-1 text-sm text-muted">{t('forYou')}</p>
+        <CatchMeUp workspaceId={workspaceId} />
+      </header>
 
       <section aria-label={t('assignedToMe')}>
         <h2 className="mb-2 text-base font-semibold text-foreground">

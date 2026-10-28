@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { register } from './helpers';
 
+const MODEL_URL =
+  process.env.E2E_AI_MODEL_URL ??
+  `http://127.0.0.1:${process.env.E2E_FAKE_MODEL_PORT ?? 8089}`;
+
 // The first account of an instance administers it, and this file runs first and alone (the
 // `admin` project in playwright.config.ts), so its user is that administrator on a fresh stack.
 const PNG_1X1 = Buffer.from(
@@ -88,11 +92,29 @@ test('the administrator sees the instance and changes its name, colour and favic
   expect(icon.headers()['content-type']).toBe('image/png');
   expect(icon.headers()['content-security-policy']).toContain('sandbox');
 
+  // AI: off until a self-hosted model is entered; the address is tested, saved, and the app's AI
+  // features follow it at once.
+  await page.getByTestId('admin-tab-ai').click();
+  const ai = page.getByTestId('admin-ai');
+  await expect(ai.getByTestId('ai-state')).toHaveText('Off');
+  await ai.getByLabel('Server address').fill('http://127.0.0.1:1');
+  await ai.getByTestId('ai-test').click();
+  await expect(ai.getByTestId('ai-test-result')).toContainText('not reachable');
+  await ai.getByLabel('Server address').fill(MODEL_URL);
+  await ai.getByTestId('ai-test').click();
+  await expect(ai.getByTestId('ai-test-result')).toHaveText(
+    'The model answered.',
+  );
+  await ai.getByTestId('ai-save').click();
+  await expect(ai.getByTestId('ai-state')).toHaveText('On');
+  await expect(ai.getByTestId('ai-source')).toContainText('Set here');
+
   // The audit log recorded it.
   await page.getByTestId('admin-tab-audit').click();
   await expect(page.getByTestId('admin-audit')).toContainText(
     'branding.update',
   );
+  await expect(page.getByTestId('admin-audit')).toContainText('ai.set');
   await expect(page.getByTestId('admin-audit')).toContainText(u.email);
 
   // Put the defaults back for the tests that follow.

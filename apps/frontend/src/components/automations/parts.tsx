@@ -2,7 +2,8 @@
 
 import { Chip } from '@heroui/react';
 import { useTranslations } from 'next-intl';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { explainFailure, summarizeRuns } from '../../lib/automation-text';
 import { useListAutomationRuns } from '../../api/generated/automations/automations';
 import { useGetList } from '../../api/generated/lists/lists';
 import type { FieldOut, StepIo } from '../../api/generated/model';
@@ -10,6 +11,7 @@ import { body } from '../../lib/api';
 import { fullName, relativeTime } from '../../lib/format';
 import { itemsOf } from '../cards/field-input';
 import { SimpleSelect, TextAreaInput, TextInput } from '../ui/inputs';
+import { useAiStatus } from '../../lib/ai';
 
 export const TRIGGERS = [
   'card_created',
@@ -45,29 +47,61 @@ export type Draft = {
 export function Runs({ id, locale }: { id: string; locale: string }) {
   const t = useTranslations('automations');
   const runs = body(useListAutomationRuns(id).data) ?? [];
+  const ai = useAiStatus();
+  const [summary, setSummary] = useState<string | null>(null);
   if (runs.length === 0)
     return <p className="text-sm text-muted">{t('noRuns')}</p>;
   return (
-    <ul className="divide-y divide-separator text-sm">
-      {runs.map((r) => (
-        <li key={r.id} className="flex items-center justify-between py-1">
-          <span>{relativeTime(r.started_at, locale)}</span>
-          <Chip
-            size="sm"
-            color={
-              r.status === 'completed'
-                ? 'success'
-                : r.status === 'failed'
-                  ? 'danger'
-                  : 'default'
-            }
+    <>
+      <div className="mb-2 flex flex-col gap-1">
+        {ai && (
+          <button
+            type="button"
+            onClick={() => setSummary(summarizeRuns(runs, t))}
+            className="self-start text-sm text-accent hover:underline"
+            data-testid="summarize-runs"
           >
-            <Chip.Label>{r.status}</Chip.Label>
-          </Chip>
-          {r.error && <span className="text-xs text-danger">{r.error}</span>}
-        </li>
-      ))}
-    </ul>
+            {t('summarizeFailures')}
+          </button>
+        )}
+        {summary && (
+          <p className="text-sm" data-testid="runs-summary">
+            {summary}
+          </p>
+        )}
+      </div>
+      <ul className="divide-y divide-separator text-sm">
+        {runs.map((r) => (
+          <li
+            key={r.id}
+            className="flex flex-wrap items-center justify-between gap-x-3 py-1"
+          >
+            <span>{relativeTime(r.started_at, locale)}</span>
+            <Chip
+              size="sm"
+              color={
+                r.status === 'completed'
+                  ? 'success'
+                  : r.status === 'failed'
+                    ? 'danger'
+                    : 'default'
+              }
+            >
+              <Chip.Label>{r.status}</Chip.Label>
+            </Chip>
+            {r.error && <span className="text-xs text-danger">{r.error}</span>}
+            {ai && r.error && explainFailure(r.error, t) && (
+              <span
+                className="w-full text-xs text-muted"
+                data-testid="why-failed"
+              >
+                {t('whyFailed')} {explainFailure(r.error, t)}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 

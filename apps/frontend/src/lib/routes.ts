@@ -23,8 +23,13 @@ export const routes = {
     `/projects/${key}/issue/${issueKey}`,
   /** The short address of an issue; what people share. */
   browse: (issueKey: string) => `/browse/${issueKey}`,
-  automation: (key: string, id: string, listId?: string) =>
-    `/projects/${key}/automations/${id}${listId ? `?list=${listId}` : ''}`,
+  automation: (key: string, id: string, listId?: string, describe?: string) => {
+    const q = new URLSearchParams();
+    if (listId) q.set('list', listId);
+    if (describe) q.set('describe', describe);
+    const query = q.toString();
+    return `/projects/${key}/automations/${id}${query ? `?${query}` : ''}`;
+  },
 };
 
 /** `ACME-12` -> `{ key: 'ACME', number: 12 }`, or null when it is not an issue key. */

@@ -8,6 +8,7 @@ import { useListFields } from '../../api/generated/fields/fields';
 import type { ListDetail } from '../../api/generated/model';
 import { body, errorKind, serverMessage } from '../../lib/api';
 import { EditScope, Panel, Stagger, nth } from '../ui/settings';
+import { SuggestFields } from './ai-suggest';
 
 /** Which fields show up on the issues of this project. Summary and description are always on. */
 export function ProjectFields({
@@ -42,38 +43,41 @@ export function ProjectFields({
 
   return (
     <EditScope canEdit={canEdit}>
-      <Panel testId="project-fields">
-        <Panel.Header>
-          <div>
-            <Panel.Title>{t('fieldsTitle')}</Panel.Title>
-            <Panel.Description>{t('fieldsHelp')}</Panel.Description>
-          </div>
-        </Panel.Header>
-        <Stagger as="ul" className="divide-y divide-separator">
-          {fields.map((f, i) => (
-            <li
-              key={f.id}
-              style={nth(i)}
-              className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-surface-secondary"
-            >
-              <Checkbox
-                isSelected={chosen.has(f.id) || locked(f)}
-                isDisabled={locked(f)}
-                onChange={(v) => void toggle(f.id, v)}
-                aria-label={f.name}
+      <div className="flex flex-col gap-4">
+        <Panel testId="project-fields">
+          <Panel.Header>
+            <div>
+              <Panel.Title>{t('fieldsTitle')}</Panel.Title>
+              <Panel.Description>{t('fieldsHelp')}</Panel.Description>
+            </div>
+          </Panel.Header>
+          <Stagger as="ul" className="divide-y divide-separator">
+            {fields.map((f, i) => (
+              <li
+                key={f.id}
+                style={nth(i)}
+                className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-surface-secondary"
               >
-                <Checkbox.Control>
-                  <Checkbox.Indicator />
-                </Checkbox.Control>
-                <Checkbox.Content>
-                  <Label>{f.name}</Label>
-                </Checkbox.Content>
-              </Checkbox>
-              <span className="ml-auto text-xs text-muted">{f.slug}</span>
-            </li>
-          ))}
-        </Stagger>
-      </Panel>
+                <Checkbox
+                  isSelected={chosen.has(f.id) || locked(f)}
+                  isDisabled={locked(f)}
+                  onChange={(v) => void toggle(f.id, v)}
+                  aria-label={f.name}
+                >
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <Checkbox.Content>
+                    <Label>{f.name}</Label>
+                  </Checkbox.Content>
+                </Checkbox>
+                <span className="ml-auto text-xs text-muted">{f.slug}</span>
+              </li>
+            ))}
+          </Stagger>
+        </Panel>
+        {canEdit && <SuggestFields list={list} workspaceId={workspaceId} />}
+      </div>
     </EditScope>
   );
 }
