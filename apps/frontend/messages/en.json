@@ -784,7 +784,8 @@
       "users": "Users",
       "projects": "Projects",
       "appearance": "Appearance",
-      "audit": "Audit log"
+      "audit": "Audit log",
+      "ai": "AI"
     },
     "on": "On",
     "off": "Off",
@@ -877,6 +878,35 @@
       "primary": "Primary",
       "soft": "Soft",
       "link": "Link"
+    },
+    "ai": {
+      "title": "Language model",
+      "help": "The AI features (writing help, summaries, related issues, suggestions, reports) are on while a self-hosted language model is set here, and off everywhere in the app while none is.",
+      "url": "Server address",
+      "modelName": "Model name",
+      "urlHint": "Any server that speaks the OpenAI chat protocol (/v1/chat/completions): llama.cpp, Ollama, vLLM, LocalAI. No API key; the address must not contain a login.",
+      "test": "Test connection",
+      "testOk": "The model answered.",
+      "remove": "Remove setting",
+      "source": {
+        "settings": "Set here.",
+        "environment": "Taken from the server environment (WORK_AI_MODEL_URL). Saving an address here replaces it.",
+        "none": "No model is set: the AI features are off."
+      },
+      "environmentFallback": "Removing it falls back to the server environment.",
+      "whatTitle": "What it switches on",
+      "whatHelp": "Everyone on the instance sees these as soon as a model is set. Nothing is applied automatically: a person always confirms a suggestion.",
+      "features": {
+        "writing": "Writing help in issues and comments: improve, shorten, change tone, translate, check tone",
+        "summaries": "Summaries of issues, boards, sprints and \"For you\"",
+        "related": "Related issues and duplicates while creating and reading",
+        "suggestions": "Suggested fields, child issues, replies and workflows",
+        "reports": "Estimates, sprint plans and backlog groups",
+        "rules": "Describing filters, searches and automation rules in a sentence"
+      },
+      "servers": "Run the model on your own hardware, for example with the bundled llama.cpp service (docker compose --profile ai) or Ollama.",
+      "privacy": "Issue text goes only to the address you enter here, never to a cloud service.",
+      "mcp": "The MCP server for AI agents does not depend on this setting; see Account settings → API tokens."
     }
   },
   "settingsui": {

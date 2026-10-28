@@ -784,7 +784,8 @@
       "users": "Benutzer",
       "projects": "Projekte",
       "appearance": "Erscheinungsbild",
-      "audit": "Audit-Log"
+      "audit": "Audit-Log",
+      "ai": "KI"
     },
     "on": "An",
     "off": "Aus",
@@ -877,6 +878,35 @@
       "primary": "Primär",
       "soft": "Dezent",
       "link": "Link"
+    },
+    "ai": {
+      "title": "Sprachmodell",
+      "help": "Die KI-Funktionen (Schreibhilfe, Zusammenfassungen, verwandte Vorgänge, Vorschläge, Berichte) sind an, solange hier ein selbst gehostetes Sprachmodell eingetragen ist, und überall in der App aus, solange keines eingetragen ist.",
+      "url": "Serveradresse",
+      "modelName": "Modellname",
+      "urlHint": "Jeder Server mit dem OpenAI-Chat-Protokoll (/v1/chat/completions): llama.cpp, Ollama, vLLM, LocalAI. Kein API-Schlüssel; die Adresse darf keine Zugangsdaten enthalten.",
+      "test": "Verbindung testen",
+      "testOk": "Das Modell hat geantwortet.",
+      "remove": "Einstellung entfernen",
+      "source": {
+        "settings": "Hier eingetragen.",
+        "environment": "Aus der Server-Umgebung (WORK_AI_MODEL_URL). Eine hier gespeicherte Adresse ersetzt sie.",
+        "none": "Kein Modell eingetragen: Die KI-Funktionen sind aus."
+      },
+      "environmentFallback": "Beim Entfernen gilt wieder die Server-Umgebung.",
+      "whatTitle": "Was damit eingeschaltet wird",
+      "whatHelp": "Alle auf der Instanz sehen diese Funktionen, sobald ein Modell eingetragen ist. Nichts wird automatisch übernommen: Ein Vorschlag wird immer von einer Person bestätigt.",
+      "features": {
+        "writing": "Schreibhilfe in Vorgängen und Kommentaren: verbessern, kürzen, Ton ändern, übersetzen, Ton prüfen",
+        "summaries": "Zusammenfassungen von Vorgängen, Boards, Sprints und „Für dich“",
+        "related": "Verwandte Vorgänge und Duplikate beim Anlegen und Lesen",
+        "suggestions": "Vorschläge für Felder, Unteraufgaben, Antworten und Workflows",
+        "reports": "Schätzungen, Sprint-Pläne und Backlog-Gruppen",
+        "rules": "Filter, Suchen und Automatisierungsregeln in einem Satz beschreiben"
+      },
+      "servers": "Betreibe das Modell auf eigener Hardware, zum Beispiel mit dem mitgelieferten llama.cpp-Dienst (docker compose --profile ai) oder mit Ollama.",
+      "privacy": "Der Text der Vorgänge geht nur an die hier eingetragene Adresse, nie an einen Cloud-Dienst.",
+      "mcp": "Der MCP-Server für KI-Agenten hängt nicht von dieser Einstellung ab; siehe Kontoeinstellungen → API-Tokens."
     }
   },
   "settingsui": {

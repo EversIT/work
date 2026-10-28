@@ -18,6 +18,14 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
+  // A stand-in for the self-hosted language model: admin.spec.ts enters its address in the
+  // administration, which switches the AI features on for the specs after it. The backend must be able
+  // to reach it; E2E_AI_MODEL_URL is the address as the backend sees it (default: this machine).
+  webServer: {
+    command: 'node src/fake-model.mjs',
+    port: Number(process.env.E2E_FAKE_MODEL_PORT ?? 8089),
+    reuseExistingServer: true,
+  },
   outputDir: '../../dist/e2e-results',
   projects: [
     // The first account of a fresh instance is its administrator and admin.spec.ts relies on being
