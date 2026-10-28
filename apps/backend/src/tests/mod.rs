@@ -3,6 +3,7 @@
 
 mod accounts;
 mod admin;
+mod ai;
 mod collab;
 mod domain;
 mod harness;

@@ -9,6 +9,7 @@ pub mod card_types;
 pub mod cards;
 pub mod files;
 pub mod lists;
+pub mod mcp;
 pub mod mfa;
 pub mod notifications;
 pub mod passkeys;

@@ -33,6 +33,7 @@ pub fn api(max_upload: usize) -> (Router<AppState>, utoipa::openapi::OpenApi) {
         .merge(crate::routes::admin::router())
         .merge(crate::routes::ai::router())
         .merge(crate::routes::ai_reports::router())
+        .merge(crate::routes::mcp::router())
         .merge(crate::routes::users::router())
         .merge(crate::routes::mfa::router())
         .merge(crate::routes::passkeys::router())

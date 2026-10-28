@@ -110,6 +110,147 @@
         ]
       }
     },
+    "/admin/ai": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "The model setting. Instance admins only.",
+        "operationId": "getAiSettings",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiSettingsOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Sets the self-hosted model. This switches the AI features on for everyone. The address is\nchecked for form only; use the test to see whether the server answers.",
+        "operationId": "setAiSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiSettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiSettingsOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Removes the setting. The AI features then follow the environment: on if `WORK_AI_MODEL_URL` is\nset, off otherwise.",
+        "operationId": "removeAiSettings",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiSettingsOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/ai/test": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Asks the model at this address for one word, without saving anything.",
+        "operationId": "testAiSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiSettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiTestOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/admin/audit": {
       "get": {
         "tags": [
@@ -407,6 +548,274 @@
             "description": ""
           },
           "409": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/ai/draft": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "A first draft of a description, from the title and the type of an issue. Needs the language model.",
+        "operationId": "draftDescription",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RewriteOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          },
+          "502": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/ai/similar": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Issues that look like the one being written, before it exists: against duplicates.",
+        "operationId": "similarIssues",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftIssueBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RelatedOut"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/ai/status": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "getAiStatus",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/ai/suggest-fields": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Values for the empty choice fields of an issue that is still being written.",
+        "operationId": "suggestDraftFields",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftIssueBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FieldSuggestion"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/ai/text": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Rewrites or translates a text that is not (yet) part of an issue: the draft of a comment, a selection\nin the editor, someone else's comment. Nothing is stored.",
+        "operationId": "rewriteText",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RewriteOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          },
+          "502": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/ai/tone": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Checks the tone of a comment before it is posted. Needs the language model.",
+        "operationId": "checkTone",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToneBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToneOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          },
+          "502": {
+            "description": ""
+          },
+          "503": {
             "description": ""
           }
         },
@@ -1527,6 +1936,315 @@
         ]
       }
     },
+    "/cards/{id}/ai/related": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "relatedCards",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RelatedOut"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/cards/{id}/ai/replies": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Three short replies to the latest comment of an issue. Needs the language model.",
+        "operationId": "suggestReplies",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubtasksOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          },
+          "502": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/cards/{id}/ai/rewrite": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "rewriteCardDescription",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RewriteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RewriteOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          },
+          "502": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/cards/{id}/ai/subtasks": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "suggestSubtasks",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubtasksOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          },
+          "502": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/cards/{id}/ai/suggest": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "suggestCardFields",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FieldSuggestion"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/cards/{id}/ai/summarize": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "summarizeCard",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SummarizeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          },
+          "502": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/cards/{id}/children": {
       "get": {
         "tags": [
@@ -2494,6 +3212,184 @@
         ]
       }
     },
+    "/lists/{id}/ai/board": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "What moved on the board, and what is stuck. \"Stuck\" is measured by the last change of an issue, since\nthe time an issue entered its column is not recorded: untouched for at least a week and for at\nleast twice as long as is usual in that column.",
+        "operationId": "summarizeBoard",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/lists/{id}/ai/estimate": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Story points for unestimated backlog issues, from similar issues that have some.",
+        "operationId": "estimateBacklog",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Estimate"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/lists/{id}/ai/groups": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Loose backlog issues grouped by topic (candidates for an epic). Only groups of at least two.",
+        "operationId": "groupBacklog",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IssueGroup"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/lists/{id}/ai/plan": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "A proposal for the next sprint: the most urgent backlog issues that fit the team's recent velocity.",
+        "operationId": "planSprint",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SprintPlan"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/lists/{id}/cards": {
       "post": {
         "tags": [
@@ -3293,6 +4189,45 @@
             "description": ""
           },
           "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/mcp": {
+      "post": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "The MCP endpoint: one JSON-RPC message per POST.",
+        "operationId": "mcp",
+        "requestBody": {
+          "description": "A JSON-RPC 2.0 message of the Model Context Protocol",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The JSON-RPC response"
+          },
+          "202": {
+            "description": "A notification, nothing to answer"
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
             "description": ""
           }
         },
@@ -5289,6 +6224,49 @@
         ]
       }
     },
+    "/sprints/{id}/ai/summary": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "What a sprint delivered and what is left: the material for retro notes.",
+        "operationId": "summarizeSprint",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SprintSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/sprints/{id}/complete": {
       "post": {
         "tags": [
@@ -6049,6 +7027,58 @@
             }
           },
           "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/workspaces/{id}/ai/catch-up": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "\"Since you were last here\": the caller's open work, what got finished, new comments and mentions.",
+        "operationId": "catchUp",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatchUp"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "429": {
             "description": ""
           }
         },
@@ -6889,6 +7919,116 @@
           }
         }
       },
+      "AiSettingsBody": {
+        "type": "object",
+        "required": [
+          "model_url"
+        ],
+        "properties": {
+          "max_output_tokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "model_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The model name sent along; many servers ignore it, Ollama needs it."
+          },
+          "model_url": {
+            "type": "string",
+            "description": "Address of the server, e.g. `http://model:8081` or `http://localhost:11434`. It must speak\nthe OpenAI chat protocol (`/v1/chat/completions`): llama.cpp, Ollama, vLLM, LocalAI."
+          }
+        }
+      },
+      "AiSettingsOut": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "source",
+          "max_output_tokens"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "The AI features are on (a model is in use, from the setting or the environment)."
+          },
+          "environment_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The environment's model address, when there is one: what removing the setting falls back to."
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "model_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "description": "`settings` (entered in the app), `environment` (WORK_AI_MODEL_URL) or `none`."
+          }
+        }
+      },
+      "AiStatus": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "languages"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "A self-hosted language model is set up: the AI features are on. Otherwise the app hides them."
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LanguageOut"
+            }
+          },
+          "model_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "AiTestOut": {
+        "type": "object",
+        "required": [
+          "ok",
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Why it failed, in a few fixed words; empty when `ok`."
+          },
+          "ok": {
+            "type": "boolean"
+          }
+        }
+      },
       "ApiTokenCreated": {
         "allOf": [
           {
@@ -7253,6 +8393,50 @@
           }
         }
       },
+      "BoardSummary": {
+        "type": "object",
+        "required": [
+          "total",
+          "done",
+          "updated_week",
+          "done_week",
+          "by_stage",
+          "stale"
+        ],
+        "properties": {
+          "by_stage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StageCount"
+            }
+          },
+          "done": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "done_week": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Of those, the ones that are done."
+          },
+          "stale": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaleCard"
+            },
+            "description": "Open issues that have sat untouched much longer than is usual for their column."
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "updated_week": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Issues that changed in the last seven days."
+          }
+        }
+      },
       "Branding": {
         "type": "object",
         "required": [
@@ -7605,6 +8789,48 @@
           }
         }
       },
+      "CatchUp": {
+        "type": "object",
+        "required": [
+          "since",
+          "assigned_open",
+          "finished",
+          "commented",
+          "mentioned"
+        ],
+        "properties": {
+          "assigned_open": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Open issues assigned to the caller."
+          },
+          "commented": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Commented"
+            },
+            "description": "Assigned to the caller and commented on by someone else since then."
+          },
+          "finished": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssueTitle"
+            },
+            "description": "Assigned to the caller and finished since then."
+          },
+          "mentioned": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssueTitle"
+            },
+            "description": "Issues where the caller was mentioned since then."
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "CeremonyOptions": {
         "type": "object",
         "required": [
@@ -7644,6 +8870,32 @@
         ],
         "properties": {
           "code": {
+            "type": "string"
+          }
+        }
+      },
+      "Commented": {
+        "type": "object",
+        "required": [
+          "card_id",
+          "key",
+          "title",
+          "count"
+        ],
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "New comments by other people since then."
+          },
+          "key": {
+            "type": "string"
+          },
+          "title": {
             "type": "string"
           }
         }
@@ -7858,6 +9110,71 @@
           }
         }
       },
+      "DraftBody": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The issue type's name (Bug, Story, Task, ...); it decides the layout of the draft."
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Language of the draft (`de`, `en`, ...). Default: the language of the title."
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "DraftIssueBody": {
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "title"
+        ],
+        "properties": {
+          "card_type_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The issue type, for the suggestion of field values."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filled": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Fields (slugs) the person has filled in already: no suggestion for those."
+          },
+          "title": {
+            "type": "string"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "EmailInvite": {
         "type": "object",
         "required": [
@@ -7883,6 +9200,42 @@
           "expires_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "Estimate": {
+        "type": "object",
+        "required": [
+          "card_id",
+          "key",
+          "title",
+          "points",
+          "confidence",
+          "based_on"
+        ],
+        "properties": {
+          "based_on": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "card_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "confidence": {
+            "type": "number",
+            "format": "float",
+            "description": "Share of the similar issues' weight within one step of the suggestion, 0 to 1."
+          },
+          "key": {
+            "type": "string"
+          },
+          "points": {
+            "type": "number",
+            "format": "double"
+          },
+          "title": {
+            "type": "string"
           }
         }
       },
@@ -8114,6 +9467,38 @@
               "boolean",
               "null"
             ]
+          }
+        }
+      },
+      "FieldSuggestion": {
+        "type": "object",
+        "required": [
+          "slug",
+          "name",
+          "value",
+          "confidence",
+          "based_on"
+        ],
+        "properties": {
+          "based_on": {
+            "type": "integer",
+            "description": "How many similar issues it was voted from.",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "format": "float",
+            "description": "Share of the similar issues that agree, 0 to 1."
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "value": {
+            "type": "object",
+            "description": "A string, or a list of strings for fields that hold several values."
           }
         }
       },
@@ -8446,6 +9831,90 @@
           "token": {
             "type": "string",
             "description": "Shown exactly once; only its hash is stored."
+          }
+        }
+      },
+      "IssueBrief": {
+        "type": "object",
+        "required": [
+          "card_id",
+          "key",
+          "title"
+        ],
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "points": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "IssueGroup": {
+        "type": "object",
+        "required": [
+          "keywords",
+          "cards"
+        ],
+        "properties": {
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssueBrief"
+            }
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What the issues of the group have in common, as words."
+          }
+        }
+      },
+      "IssueTitle": {
+        "type": "object",
+        "required": [
+          "card_id",
+          "key",
+          "title"
+        ],
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "LanguageOut": {
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           }
         }
       },
@@ -9031,6 +10500,42 @@
           }
         }
       },
+      "PlanPick": {
+        "type": "object",
+        "required": [
+          "card_id",
+          "key",
+          "title",
+          "points",
+          "estimated"
+        ],
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "estimated": {
+            "type": "boolean",
+            "description": "The points are a guess (from similar issues, or the default), not set on the issue."
+          },
+          "key": {
+            "type": "string"
+          },
+          "points": {
+            "type": "number",
+            "format": "double"
+          },
+          "priority": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
       "PreferenceBody": {
         "type": "object",
         "required": [
@@ -9181,6 +10686,45 @@
           }
         }
       },
+      "RelatedOut": {
+        "type": "object",
+        "required": [
+          "card_id",
+          "key",
+          "title",
+          "relation",
+          "score",
+          "shared"
+        ],
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "relation": {
+            "type": "string",
+            "description": "`duplicate` (very probably the same issue) or `related`."
+          },
+          "score": {
+            "type": "number",
+            "format": "float",
+            "description": "0 to 1."
+          },
+          "shared": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The words the two issues have in common, strongest first."
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
       "ResetConfirm": {
         "type": "object",
         "required": [
@@ -9204,6 +10748,42 @@
         "properties": {
           "email": {
             "type": "string"
+          }
+        }
+      },
+      "RewriteBody": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "`improve`, `fix_spelling`, `shorten`, `expand`, `professional`, `friendly` or `translate`."
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Target language for `translate`."
+          }
+        }
+      },
+      "RewriteOut": {
+        "type": "object",
+        "required": [
+          "text",
+          "document"
+        ],
+        "properties": {
+          "document": {
+            "type": "object",
+            "description": "The same text as an editor document, ready to be saved as the description."
+          },
+          "text": {
+            "type": "string",
+            "description": "Markdown."
           }
         }
       },
@@ -9388,6 +10968,32 @@
           "secret": {
             "type": "string",
             "description": "Hex key. Outbound webhooks carry `X-Work-Signature: sha256=HMAC_SHA256(key, raw body)`."
+          }
+        }
+      },
+      "SlowCard": {
+        "type": "object",
+        "required": [
+          "card_id",
+          "key",
+          "title",
+          "days"
+        ],
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "days": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Days from creation to the last change."
+          },
+          "key": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
           }
         }
       },
@@ -9653,6 +11259,91 @@
           }
         }
       },
+      "SprintPlan": {
+        "type": "object",
+        "required": [
+          "sprints_used",
+          "capacity",
+          "total",
+          "picks"
+        ],
+        "properties": {
+          "capacity": {
+            "type": "number",
+            "format": "double"
+          },
+          "picks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanPick"
+            }
+          },
+          "sprints_used": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          },
+          "velocity": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Average points finished per sprint over the last completed sprints; `null` without history."
+          }
+        }
+      },
+      "SprintSummary": {
+        "type": "object",
+        "required": [
+          "completed",
+          "open",
+          "points_done",
+          "points_open",
+          "themes",
+          "slowest"
+        ],
+        "properties": {
+          "completed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssueBrief"
+            }
+          },
+          "open": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssueBrief"
+            },
+            "description": "Not done: these are carried over (or dropped) when the sprint is completed."
+          },
+          "points_done": {
+            "type": "number",
+            "format": "double"
+          },
+          "points_open": {
+            "type": "number",
+            "format": "double"
+          },
+          "slowest": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SlowCard"
+            },
+            "description": "The finished issues that took longest from creation to their last change."
+          },
+          "themes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Words that come up in the sprint's issues, most frequent first."
+          }
+        }
+      },
       "SsoLink": {
         "type": "object",
         "required": [
@@ -9687,6 +11378,26 @@
               "boolean",
               "null"
             ]
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "StageCount": {
+        "type": "object",
+        "required": [
+          "name",
+          "count",
+          "completed"
+        ],
+        "properties": {
+          "completed": {
+            "type": "boolean"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
           },
           "name": {
             "type": "string"
@@ -9750,6 +11461,42 @@
           }
         }
       },
+      "StaleCard": {
+        "type": "object",
+        "required": [
+          "card_id",
+          "key",
+          "title",
+          "stage",
+          "days",
+          "median_days"
+        ],
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "days": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Days since the issue last changed."
+          },
+          "key": {
+            "type": "string"
+          },
+          "median_days": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The usual number of days an issue sits in that column untouched."
+          },
+          "stage": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
       "StartBody": {
         "type": "object",
         "properties": {
@@ -9782,6 +11529,61 @@
           },
           "config": {
             "type": "object"
+          }
+        }
+      },
+      "SubtasksOut": {
+        "type": "object",
+        "required": [
+          "suggestions"
+        ],
+        "properties": {
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SummarizeBody": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Answer language, for the model (`en`, `de`, ...). Default: the language of the issue."
+          }
+        }
+      },
+      "SummaryOut": {
+        "type": "object",
+        "required": [
+          "text",
+          "document",
+          "source",
+          "keywords"
+        ],
+        "properties": {
+          "document": {
+            "type": "object",
+            "description": "The same text as an editor document, to show it formatted."
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source": {
+            "type": "string",
+            "description": "`model` (written by the local language model) or `extractive` (the most telling\nsentences of the issue, chosen by the built-in analysis)."
+          },
+          "text": {
+            "type": "string",
+            "description": "Markdown."
           }
         }
       },
@@ -9883,6 +11685,38 @@
           }
         }
       },
+      "TextBody": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "`improve`, `fix_spelling`, `shorten`, `expand`, `professional`, `friendly` or `translate`."
+          },
+          "document": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "A document from the editor."
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Markdown. Send this or `document`."
+          }
+        }
+      },
       "TokenPair": {
         "type": "object",
         "required": [
@@ -9897,6 +11731,48 @@
             "type": "integer",
             "format": "int64",
             "description": "Seconds until the access token expires. The refresh token is never in the body:\nit is set as an HttpOnly cookie so scripts (and XSS) cannot read it."
+          }
+        }
+      },
+      "ToneBody": {
+        "type": "object",
+        "properties": {
+          "document": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ToneOut": {
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "properties": {
+          "document": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "ok": {
+            "type": "boolean",
+            "description": "The comment reads as polite and constructive."
+          },
+          "suggestion": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A friendlier version with the same content, when it is not `ok`."
           }
         }
       },

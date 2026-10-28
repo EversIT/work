@@ -125,6 +125,9 @@ pub struct AuthUser {
     pub session_id: Option<Uuid>,
     /// Set when authenticated through an API token.
     pub token_id: Option<Uuid>,
+    /// A read-only API token. Ordinary routes refuse it for anything but GET before the handler
+    /// runs; the MCP endpoint (everything is a POST there) lets it in and checks per tool.
+    pub read_only: bool,
 }
 
 impl AuthUser {
@@ -140,6 +143,7 @@ async fn authenticate_token(
     token: &str,
     email: Option<&str>,
     method: &axum::http::Method,
+    gate_method: bool,
 ) -> Result<AuthUser, ApiError> {
     if !token.starts_with(API_TOKEN_PREFIX) || token.len() > 200 {
         return Err(ApiError::Unauthorized);
@@ -166,7 +170,7 @@ async fn authenticate_token(
         *method,
         axum::http::Method::GET | axum::http::Method::HEAD | axum::http::Method::OPTIONS
     );
-    if scope == "read" && !safe {
+    if scope == "read" && !safe && gate_method {
         return Err(ApiError::Forbidden);
     }
     sqlx::query("UPDATE api_tokens SET last_used_at = now() WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - interval '1 minute')")
@@ -177,6 +181,7 @@ async fn authenticate_token(
         id: user_id,
         session_id: None,
         token_id: Some(token_id),
+        read_only: scope == "read",
     })
 }
 
@@ -184,47 +189,69 @@ impl FromRequestParts<AppState> for AuthUser {
     type Rejection = ApiError;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, ApiError> {
-        let header = parts
-            .headers
-            .get(axum::http::header::AUTHORIZATION)
-            .and_then(|v| v.to_str().ok())
-            .ok_or(ApiError::Unauthorized)?;
+        authenticate(parts, state, true).await
+    }
+}
 
-        if let Some(basic) = header.strip_prefix("Basic ") {
-            let decoded = base64::engine::general_purpose::STANDARD
-                .decode(basic.trim())
-                .map_err(|_| ApiError::Unauthorized)?;
-            let text = String::from_utf8(decoded).map_err(|_| ApiError::Unauthorized)?;
-            let (email, token) = text.split_once(':').ok_or(ApiError::Unauthorized)?;
-            return authenticate_token(state, token, Some(email), &parts.method).await;
-        }
+/// The caller of the MCP endpoint. Same credentials as everywhere else, but a read-only token is
+/// not turned away for using POST: MCP tunnels every call through it. The handler checks
+/// `read_only` for each tool that changes something.
+pub struct McpUser(pub AuthUser);
 
-        let token = header
-            .strip_prefix("Bearer ")
-            .ok_or(ApiError::Unauthorized)?;
-        if token.starts_with(API_TOKEN_PREFIX) {
-            return authenticate_token(state, token, None, &parts.method).await;
-        }
-        let claims = decode_access_token(&state.config.jwt_secret, token)?;
+impl FromRequestParts<AppState> for McpUser {
+    type Rejection = ApiError;
 
-        // Revocation: the session must still be live and the account active.
-        let live: Option<(Uuid,)> = sqlx::query_as(
-            "SELECT s.id FROM sessions s JOIN users u ON u.id = s.user_id
+    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, ApiError> {
+        authenticate(parts, state, false).await.map(McpUser)
+    }
+}
+
+async fn authenticate(
+    parts: &mut Parts,
+    state: &AppState,
+    gate_method: bool,
+) -> Result<AuthUser, ApiError> {
+    let header = parts
+        .headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .ok_or(ApiError::Unauthorized)?;
+
+    if let Some(basic) = header.strip_prefix("Basic ") {
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(basic.trim())
+            .map_err(|_| ApiError::Unauthorized)?;
+        let text = String::from_utf8(decoded).map_err(|_| ApiError::Unauthorized)?;
+        let (email, token) = text.split_once(':').ok_or(ApiError::Unauthorized)?;
+        return authenticate_token(state, token, Some(email), &parts.method, gate_method).await;
+    }
+
+    let token = header
+        .strip_prefix("Bearer ")
+        .ok_or(ApiError::Unauthorized)?;
+    if token.starts_with(API_TOKEN_PREFIX) {
+        return authenticate_token(state, token, None, &parts.method, gate_method).await;
+    }
+    let claims = decode_access_token(&state.config.jwt_secret, token)?;
+
+    // Revocation: the session must still be live and the account active.
+    let live: Option<(Uuid,)> = sqlx::query_as(
+        "SELECT s.id FROM sessions s JOIN users u ON u.id = s.user_id
              WHERE s.id = $1 AND s.user_id = $2 AND s.revoked_at IS NULL
                AND s.expires_at > now() AND u.deleted_at IS NULL AND u.disabled_at IS NULL",
-        )
-        .bind(claims.sid)
-        .bind(claims.sub)
-        .fetch_optional(&state.db)
-        .await?;
-        live.ok_or(ApiError::Unauthorized)?;
+    )
+    .bind(claims.sid)
+    .bind(claims.sub)
+    .fetch_optional(&state.db)
+    .await?;
+    live.ok_or(ApiError::Unauthorized)?;
 
-        Ok(AuthUser {
-            id: claims.sub,
-            session_id: Some(claims.sid),
-            token_id: None,
-        })
-    }
+    Ok(AuthUser {
+        id: claims.sub,
+        session_id: Some(claims.sid),
+        token_id: None,
+        read_only: false,
+    })
 }
 
 #[cfg(test)]
