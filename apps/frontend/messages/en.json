@@ -715,6 +715,7 @@
     },
     "linkAdded": "linked: {relation} {key}",
     "linkRemoved": "unlinked: {relation} {key}",
+    "editComment": "Edit comment",
     "similarIssues": "Similar issues",
     "possibleDuplicate": "Possible duplicate"
   },

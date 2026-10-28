@@ -2,13 +2,14 @@
 
 import { Button, Checkbox, Chip, Label, toast, Tabs } from '@heroui/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Paperclip, Trash2 } from 'lucide-react';
+import { Paperclip, Pencil, Trash2 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRef, useState } from 'react';
 import {
   useCreateCardActivity,
   useDeleteActivity,
   useListCardActivities,
+  useUpdateActivity,
 } from '../../api/generated/activities/activities';
 import { uploadFile } from '../../api/generated/files/files';
 import type { ActivityOut } from '../../api/generated/model';
@@ -47,6 +48,9 @@ export function IssueActivity({
   const acts = body(useListCardActivities(cardId).data) ?? [];
   const create = useCreateCardActivity();
   const del = useDeleteActivity();
+  const update = useUpdateActivity();
+  const me = ctx.members.find((m) => m.user_id === ctx.me?.id);
+  const moderator = me?.role === 'admin' || me?.role === 'owner';
   const [tab, setTab] = useState<Tab>('all');
   const [composing, setComposing] = useState(false);
   const [doc, setDoc] = useState<unknown>(null);
@@ -263,6 +267,23 @@ export function IssueActivity({
             author={who(a.created_by)}
             locale={locale}
             members={members}
+            // Authors edit their own comments, project admins may moderate (the server checks too).
+            canEdit={
+              a.type === 'comment' && (a.created_by === ctx.me?.id || moderator)
+            }
+            onSave={async (content) => {
+              try {
+                await update.mutateAsync({
+                  id: a.id,
+                  data: { content: { ...(a.content as object), content } },
+                });
+                await qc.invalidateQueries();
+                return true;
+              } catch (e) {
+                fail(e);
+                return false;
+              }
+            }}
             onDelete={async () => {
               try {
                 await del.mutateAsync({ id: a.id });
@@ -283,15 +304,23 @@ function ActivityItem({
   author,
   locale,
   members,
+  canEdit,
+  onSave,
   onDelete,
 }: {
   a: ActivityOut;
   author?: Member;
   locale: string;
   members: Member[];
+  canEdit: boolean;
+  /** Saves the edited comment text; resolves to whether it worked. */
+  onSave: (content: unknown) => Promise<boolean>;
   onDelete: () => void;
 }) {
   const t = useTranslations('issue');
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<unknown>(null);
+  const [saving, setSaving] = useState(false);
   const c = a.content as Record<string, unknown>;
   const name = author
     ? fullName(author)
@@ -311,7 +340,40 @@ function ActivityItem({
           {relativeTime(a.created_at, locale)}
           {a.type === 'update' && <span> · {t('changedFields')}</span>}
         </p>
-        {a.type === 'comment' && (
+        {a.type === 'comment' && editing && (
+          <div className="flex flex-col gap-2" data-testid="comment-edit">
+            <RichEditor
+              label={t('comment')}
+              value={draft}
+              onChange={setDraft}
+              testId="comment-edit-editor"
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                isPending={saving}
+                isDisabled={isEmptyDoc(draft)}
+                data-testid="comment-edit-save"
+                onPress={async () => {
+                  setSaving(true);
+                  const done = await onSave(draft);
+                  setSaving(false);
+                  if (done) setEditing(false);
+                }}
+              >
+                {t('save')}
+              </Button>
+              <Button
+                size="sm"
+                variant="tertiary"
+                onPress={() => setEditing(false)}
+              >
+                {t('cancel')}
+              </Button>
+            </div>
+          </div>
+        )}
+        {a.type === 'comment' && !editing && (
           <div>
             {typeof c.content === 'string' ? (
               <p className="whitespace-pre-wrap break-words text-sm">
@@ -349,16 +411,34 @@ function ActivityItem({
           </ul>
         )}
       </div>
-      {a.type !== 'update' && (
-        <Button
-          isIconOnly
-          size="sm"
-          variant="ghost"
-          aria-label={t('deleteActivity')}
-          onPress={onDelete}
-        >
-          <Trash2 size={12} />
-        </Button>
+      {a.type !== 'update' && !editing && (
+        <div className="flex shrink-0">
+          {canEdit && (
+            <Button
+              isIconOnly
+              size="sm"
+              variant="ghost"
+              aria-label={t('editComment')}
+              data-testid="edit-comment"
+              onPress={() => {
+                // Plain text from before the editor existed becomes a document in the editor.
+                setDraft(c.content);
+                setEditing(true);
+              }}
+            >
+              <Pencil size={12} />
+            </Button>
+          )}
+          <Button
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            aria-label={t('deleteActivity')}
+            onPress={onDelete}
+          >
+            <Trash2 size={12} />
+          </Button>
+        </div>
       )}
     </li>
   );
