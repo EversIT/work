@@ -15,6 +15,7 @@ import type { ListDetail } from '../../api/generated/model';
 import { errorKind, serverMessage } from '../../lib/api';
 import { SimpleSelect, TextInput } from '../ui/inputs';
 import { EditScope, Panel, Stagger, nth } from '../ui/settings';
+import { SuggestStatuses } from './ai-suggest';
 
 const COLORS = ['grey', 'blue', 'purple', 'green', 'orange', 'red', 'teal'];
 
@@ -192,6 +193,7 @@ export function ProjectWorkflow({
             </Button>
           </form>
         </Panel>
+        {canEdit && <SuggestStatuses list={list} />}
       </div>
     </EditScope>
   );
