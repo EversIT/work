@@ -860,7 +860,13 @@
     "connecting": "Connecting…",
     "saving": "saving",
     "saved": "saved",
-    "empty": "No description."
+    "empty": "No description.",
+    "textStyle": "Text style",
+    "normalText": "Normal text",
+    "heading1": "Heading 1",
+    "heading2": "Heading 2",
+    "heading3": "Heading 3",
+    "language": "Language"
   },
   "passkeys": {
     "title": "Passkeys",

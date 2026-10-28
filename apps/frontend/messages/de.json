@@ -860,7 +860,13 @@
     "connecting": "Verbinde…",
     "saving": "speichert",
     "saved": "gespeichert",
-    "empty": "Keine Beschreibung."
+    "empty": "Keine Beschreibung.",
+    "textStyle": "Textstil",
+    "normalText": "Normaler Text",
+    "heading1": "Überschrift 1",
+    "heading2": "Überschrift 2",
+    "heading3": "Überschrift 3",
+    "language": "Sprache"
   },
   "passkeys": {
     "title": "Passkeys",
