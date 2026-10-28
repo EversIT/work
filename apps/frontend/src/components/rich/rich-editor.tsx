@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { richExtensions, safeHref, toDoc } from '../../lib/rich';
+import { AiWriting } from './ai-writing';
 
 /** Formatting buttons for an editor. Pure chrome: the editor itself decides what is allowed. */
 export function Toolbar({
@@ -136,6 +137,7 @@ export function Toolbar({
       onMouseDown={(e) => e.preventDefault()}
       className="flex flex-wrap gap-0.5 border-b border-border bg-surface-secondary p-1"
     >
+      <AiWriting editor={editor} />
       {items.map((i) => (
         <ToolButton
           key={i.key}

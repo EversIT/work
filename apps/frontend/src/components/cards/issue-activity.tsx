@@ -16,9 +16,15 @@ import { body, errorKind, serverMessage } from '../../lib/api';
 import { fullName, relativeTime } from '../../lib/format';
 import { UserAvatar } from '../shell/user-avatar';
 import { useWorkspaceCtx } from '../shell/workspace-context';
-import { isEmptyDoc } from '../../lib/rich';
+import { isEmptyDoc, toDoc } from '../../lib/rich';
 import { RichEditor } from '../rich/rich-editor';
 import { RichView } from '../rich/rich-view';
+import {
+  ReplyChips,
+  SUMMARY_FROM,
+  ThreadSummary,
+  ToneCheck,
+} from './ai-comments';
 import { downloadFile } from './files';
 
 type Member = { user_id: string; first_name: string; last_name: string };
@@ -130,6 +136,15 @@ export function IssueActivity({
                   onChange={setDoc}
                   testId="comment-editor"
                 />
+                {isEmptyDoc(doc) && (
+                  <ReplyChips
+                    cardId={cardId}
+                    onPick={(text) => {
+                      setDoc(toDoc(text));
+                      setEditorKey((k) => k + 1);
+                    }}
+                  />
+                )}
                 {members.length > 1 && (
                   <div className="flex flex-wrap gap-x-4 gap-y-1">
                     <span className="text-xs text-muted">{t('notify')}:</span>
@@ -187,6 +202,13 @@ export function IssueActivity({
                   >
                     {t('cancel')}
                   </Button>
+                  <ToneCheck
+                    doc={doc}
+                    onUse={(d) => {
+                      setDoc(d);
+                      setEditorKey((k) => k + 1);
+                    }}
+                  />
                   <input
                     ref={fileRef}
                     type="file"
@@ -227,6 +249,11 @@ export function IssueActivity({
           </div>
         </div>
       )}
+
+      {tab !== 'history' &&
+        acts.filter((a) => a.type === 'comment').length > SUMMARY_FROM && (
+          <ThreadSummary cardId={cardId} />
+        )}
 
       <ol className="flex flex-col gap-4" data-testid="activities">
         {shown.map((a) => (
