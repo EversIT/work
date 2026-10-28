@@ -326,6 +326,14 @@ function ActivityItem({
         {a.type === 'task' && (
           <p className="text-sm">☐ {String(c.title ?? '')}</p>
         )}
+        {a.type === 'update' && isLinkChange(c.link) && (
+          <p className="text-sm text-muted">
+            {t(c.link.action === 'added' ? 'linkAdded' : 'linkRemoved', {
+              relation: t(`relation.${linkRelation(c.link)}`),
+              key: c.link.key,
+            })}
+          </p>
+        )}
         {a.type === 'update' && (
           <ul className="text-sm text-muted">
             {(Array.isArray(c.changes)
@@ -355,6 +363,26 @@ function ActivityItem({
     </li>
   );
 }
+
+type LinkChange = {
+  action: string;
+  type: string;
+  direction: string;
+  key: string;
+};
+const isLinkChange = (v: unknown): v is LinkChange =>
+  !!v &&
+  typeof v === 'object' &&
+  typeof (v as LinkChange).key === 'string' &&
+  typeof (v as LinkChange).type === 'string';
+const INWARD: Record<string, string> = {
+  blocks: 'is_blocked_by',
+  duplicates: 'is_duplicated_by',
+  clones: 'is_cloned_by',
+};
+/** History entry -> the relationship key used in the `issue.relation` messages. */
+const linkRelation = (l: LinkChange) =>
+  l.type !== 'relates' && l.direction === 'inward' ? INWARD[l.type] : l.type;
 
 function show(v: unknown, members: Member[]): string {
   if (v === null || v === undefined || v === '') return '—';

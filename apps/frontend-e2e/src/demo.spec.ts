@@ -58,3 +58,70 @@ test('changes work in the page, and a reload starts over', async ({ page }) => {
     'Looks good to me',
   );
 });
+
+test('linked work items: seeded links show, a new one can be added and removed', async ({
+  page,
+}) => {
+  await page.goto(BURNDOWN);
+  const links = page.getByTestId('linked-issues');
+  // The demo ships "ACME-2 blocks ACME-3".
+  await expect(links.getByTestId('links-blocks')).toContainText('ACME-3');
+  await expect(links.getByTestId('link-row')).toHaveCount(1);
+
+  await links.getByTestId('add-link').click();
+  await links.getByTestId('link-relation').click();
+  await page.getByRole('option', { name: 'relates to', exact: true }).click();
+  await links.getByTestId('link-search').fill('ACME-5');
+  await links
+    .getByTestId('link-results')
+    .getByRole('button', { name: /ACME-5/ })
+    .click();
+  await links.getByTestId('link-submit').click();
+  await expect(links.getByTestId('links-relates')).toContainText('ACME-5');
+  await expect(links.getByTestId('link-row')).toHaveCount(2);
+
+  // The same relationship again is refused; the form stays open.
+  await links.getByTestId('add-link').click();
+  await links.getByTestId('link-relation').click();
+  await page.getByRole('option', { name: 'relates to', exact: true }).click();
+  await links.getByTestId('link-search').fill('ACME-5');
+  await links
+    .getByTestId('link-results')
+    .getByRole('button', { name: /ACME-5/ })
+    .click();
+  await links.getByTestId('link-submit').click();
+  await expect(links.getByTestId('add-link-form')).toBeVisible();
+  await expect(links.getByTestId('link-row')).toHaveCount(2);
+  await links.getByRole('button', { name: 'Cancel' }).click();
+
+  await links.getByRole('button', { name: 'Remove link to ACME-3' }).click();
+  await expect(links.getByTestId('links-blocks')).toHaveCount(0);
+  await expect(links.getByTestId('link-row')).toHaveCount(1);
+});
+
+test('linked work items: every relationship is accepted', async ({ page }) => {
+  await page.goto(BURNDOWN);
+  const links = page.getByTestId('linked-issues');
+  const all: [label: string, section: string, target: string][] = [
+    ['blocks', 'blocks', 'ACME-4'],
+    ['is blocked by', 'is_blocked_by', 'ACME-5'],
+    ['duplicates', 'duplicates', 'ACME-6'],
+    ['is duplicated by', 'is_duplicated_by', 'ACME-7'],
+    ['relates to', 'relates', 'ACME-8'],
+    ['clones', 'clones', 'ACME-1'],
+  ];
+  for (const [label, section, target] of all) {
+    await links.getByTestId('add-link').click();
+    await links.getByTestId('link-relation').click();
+    await page.getByRole('option', { name: label, exact: true }).click();
+    await links.getByTestId('link-search').fill(target);
+    await links
+      .getByTestId('link-results')
+      .getByRole('button', { name: new RegExp(`${target}(?!\\d)`) })
+      .click();
+    await links.getByTestId('link-submit').click();
+    // No "unknown link type": the form closes and the issue shows up under its own wording.
+    await expect(links.getByTestId('add-link-form')).toBeHidden();
+    await expect(links.getByTestId(`links-${section}`)).toContainText(target);
+  }
+});
