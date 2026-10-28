@@ -699,6 +699,8 @@
     },
     "breadcrumb": "Breadcrumb",
     "notFound": "This issue does not exist, or you cannot open it.",
+    "addSubtask": "Add subtask",
+    "subtaskName": "Name this sub-task",
     "linkedIssues": "Linked work items",
     "addLink": "Add linked work item",
     "link": "Link",
@@ -719,7 +721,8 @@
     "linkRemoved": "unlinked: {relation} {key}",
     "editComment": "Edit comment",
     "similarIssues": "Similar issues",
-    "possibleDuplicate": "Possible duplicate"
+    "possibleDuplicate": "Possible duplicate",
+    "childSummary": "{progress} in progress · {todo} to do"
   },
   "nav": {
     "account": "Account",

@@ -699,6 +699,8 @@
     },
     "breadcrumb": "Brotkrumen",
     "notFound": "Diesen Vorgang gibt es nicht, oder du kannst ihn nicht öffnen.",
+    "addSubtask": "Subtask hinzufügen",
+    "subtaskName": "Subtask benennen",
     "linkedIssues": "Verknüpfte Vorgänge",
     "addLink": "Verknüpften Vorgang hinzufügen",
     "link": "Verknüpfen",
@@ -719,7 +721,8 @@
     "linkRemoved": "Verknüpfung entfernt: {relation} {key}",
     "editComment": "Kommentar bearbeiten",
     "similarIssues": "Ähnliche Vorgänge",
-    "possibleDuplicate": "Mögliches Duplikat"
+    "possibleDuplicate": "Mögliches Duplikat",
+    "childSummary": "{progress} in Arbeit · {todo} offen"
   },
   "nav": {
     "account": "Konto",
