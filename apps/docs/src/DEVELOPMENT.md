@@ -7,7 +7,7 @@ Requirements: Node 24+, Rust through [rustup](https://rustup.rs) (the toolchain 
 
 ```sh
 npm ci
-cp deploy/.env.example .env     # fill in the required values; there are no defaults for secrets
+cp packages/deploy/.env.example .env     # fill in the required values; there are no defaults for secrets
 npx nx run backend:serve        # the backend needs the WORK_* variables from .env in its environment
 npx nx run frontend:dev         # regenerates the API client first, then starts Next.js
 ```
@@ -68,8 +68,8 @@ fresh database: the first account becomes the administrator, which `admin.spec.t
 **Add a migration**: a new `apps/backend/migrations/NNNN_name.sql` (never edit an applied one). Migrations
 run at startup and in every `#[sqlx::test]`.
 
-**Add a setting**: read it in `config/`, document it in `apps/docs/src/CONFIGURATION.md` and `deploy/.env.example`,
-pass it through `deploy/docker-compose.yml`. Never give a secret a default.
+**Add a setting**: read it in `config/`, document it in `apps/docs/src/CONFIGURATION.md` and `packages/deploy/.env.example`,
+pass it through `packages/deploy/docker-compose.yml`. Never give a secret a default.
 
 **Add a translation key**: add it to both `messages/en.json` and `messages/de.json`.
 
@@ -80,8 +80,8 @@ administrator's accent colour onto them.
 
 ```sh
 npx nx run-many -t container:local                        # work-backend:latest, work-frontend:latest
-cp deploy/.env.example .env                               # fill in the required values
-docker compose -f deploy/docker-compose.yml --env-file .env up
+cp packages/deploy/.env.example .env                               # fill in the required values
+docker compose -f packages/deploy/docker-compose.yml --env-file .env up
 ```
 
 Compose refuses to start when a secret is missing. Only `127.0.0.1:3000` is published; put a TLS-terminating

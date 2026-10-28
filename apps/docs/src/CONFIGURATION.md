@@ -1,6 +1,6 @@
 # Configuration
 
-Everything is configured through environment variables (`deploy/.env.example` is the annotated template).
+Everything is configured through environment variables (`packages/deploy/.env.example` is the annotated template).
 **No secret has a default**: a missing or weak secret stops the server at startup. Settings that are not
 secret can be changed later in the admin panel where noted.
 

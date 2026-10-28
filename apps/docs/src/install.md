@@ -30,8 +30,8 @@ Always run backend and frontend at the **same** version. What changed is in the
 
 ```sh
 mkdir work && cd work
-curl -fsSLO https://raw.githubusercontent.com/EversIT/work/main/deploy/docker-compose.yml
-curl -fsSL  https://raw.githubusercontent.com/EversIT/work/main/deploy/.env.example -o .env
+curl -fsSLO https://raw.githubusercontent.com/EversIT/work/main/packages/deploy/docker-compose.yml
+curl -fsSL  https://raw.githubusercontent.com/EversIT/work/main/packages/deploy/.env.example -o .env
 ```
 
 ## 2. Fill in `.env`

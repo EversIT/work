@@ -127,7 +127,7 @@ jobs:
             echo "WORK_SMTP_FROM=work@example.test"
             echo "WORK_SMTP_TLS=none"
           } > "$RUNNER_TEMP/stack.env"
-          docker compose -f deploy/docker-compose.yml --env-file "$RUNNER_TEMP/stack.env" --profile dev up -d --wait
+          docker compose -f packages/deploy/docker-compose.yml --env-file "$RUNNER_TEMP/stack.env" --profile dev up -d --wait
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test --config=apps/frontend-e2e/playwright.config.ts
         env:
@@ -140,10 +140,10 @@ jobs:
       - if: failure()
         run: |
           if [ -f "$RUNNER_TEMP/stack.env" ]; then
-            docker compose -f deploy/docker-compose.yml --env-file "$RUNNER_TEMP/stack.env" logs --tail 200
+            docker compose -f packages/deploy/docker-compose.yml --env-file "$RUNNER_TEMP/stack.env" logs --tail 200
           fi
       - if: always()
         run: |
           if [ -f "$RUNNER_TEMP/stack.env" ]; then
-            docker compose -f deploy/docker-compose.yml --env-file "$RUNNER_TEMP/stack.env" --profile dev down -v
+            docker compose -f packages/deploy/docker-compose.yml --env-file "$RUNNER_TEMP/stack.env" --profile dev down -v
           fi
