@@ -3358,7 +3358,12 @@ async fn migration_dedupes_workspace_keys(db: PgPool) {
     let all = sqlx::migrate!("./migrations");
     let (before, after): (Vec<_>, Vec<_>) =
         all.migrations.iter().cloned().partition(|m| m.version < 17);
-    assert_eq!(after.len(), 1, "0017 is the newest migration");
+    // 0017 is the migration under test; later ones run after it and do not touch workspace keys.
+    assert_eq!(
+        after.first().map(|m| m.version),
+        Some(17),
+        "the migrations after the data was inserted start with 0017"
+    );
     let upto = |migrations| sqlx::migrate::Migrator {
         migrations: Cow::Owned(migrations),
         ignore_missing: true,

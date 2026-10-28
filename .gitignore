@@ -66,3 +66,6 @@ target
 
 # VitePress
 apps/docs/.vitepress/cache
+
+# model files for the bundled llama.cpp service
+/models

@@ -571,7 +571,7 @@ async fn get_card(
 
 #[utoipa::path(get, operation_id = "getCardChildren", path = "/cards/{id}/children", tag = "cards",
     params(("id" = Uuid, Path)), responses((status = 200, body = Vec<CardOut>), (status = 404)), security(("bearer" = [])))]
-async fn card_children(
+pub(crate) async fn card_children(
     State(s): State<AppState>,
     user: AuthUser,
     Path(id): Path<Uuid>,
@@ -892,7 +892,7 @@ pub struct WsSearchQuery {
 #[utoipa::path(get, operation_id = "searchWorkspaceCards", path = "/workspaces/{id}/cards/search", tag = "cards",
     params(("id" = Uuid, Path), ("keyword" = String, Query), ("card_type_id" = Option<Uuid>, Query)),
     responses((status = 200, body = Vec<CardOut>), (status = 404)), security(("bearer" = [])))]
-async fn workspace_card_search(
+pub(crate) async fn workspace_card_search(
     State(s): State<AppState>,
     user: AuthUser,
     Path(wid): Path<Uuid>,
@@ -998,7 +998,7 @@ async fn open_by_key(
 /// unknown keys and issues the caller may not see are all the same 404.
 #[utoipa::path(get, operation_id = "resolveIssue", path = "/issues/{key}", tag = "cards",
     params(("key" = String, Path)), responses((status = 200, body = CardOut), (status = 404)), security(("bearer" = [])))]
-async fn resolve_issue(
+pub(crate) async fn resolve_issue(
     State(s): State<AppState>,
     user: AuthUser,
     Path(key): Path<String>,

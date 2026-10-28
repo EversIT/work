@@ -24,6 +24,16 @@ secret can be changed later in the admin panel where noted.
 | `WORK_SCHEDULER`            | `true`                  | Run date-based automation triggers in this process. Safe on several instances.           |
 | `BACKEND_URL` (frontend)    | `http://localhost:3001` | Where the Next.js proxy forwards `/api/v1`.                                              |
 
+## AI assistant
+
+The AI features are off until a self-hosted language model is set. An admin can set it in the app (Administration → AI), which wins over these variables; they are the default for instances that do not. See [AI assistant and MCP](/ai). The MCP server needs none of this.
+
+| Variable                    | Default          | Meaning                                                                                                                                                          |
+| --------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WORK_AI_MODEL_URL`         | unset            | Base URL of your model server (OpenAI chat protocol: llama.cpp, Ollama, vLLM), e.g. `http://127.0.0.1:8081`. Unset and nothing set in the app = AI features off. |
+| `WORK_AI_MODEL_NAME`        | `work-assistant` | Sent as `model`; llama.cpp ignores it, Ollama needs it.                                                                                                          |
+| `WORK_AI_MAX_OUTPUT_TOKENS` | `1024`           | Longest answer, 64 to 8000 tokens.                                                                                                                               |
+
 ## Accounts and sign-in
 
 | Variable                                                                         | Meaning                                                                                                                                                             |

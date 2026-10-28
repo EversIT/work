@@ -81,6 +81,12 @@ services:
       WORK_WEBHOOK_ALLOW_PRIVATE: ${WORK_WEBHOOK_ALLOW_PRIVATE:-false}
       WORK_WEBHOOK_ALLOW_HTTP: ${WORK_WEBHOOK_ALLOW_HTTP:-false}
       WORK_ALLOW_EXTERNAL_EMAIL: ${WORK_ALLOW_EXTERNAL_EMAIL:-false}
+      # Optional: your self-hosted language model. The AI features are on only while one is set,
+      # here or by an admin in the app (Administration -> AI, which wins). Start the bundled one
+      # with `--profile ai` and set WORK_AI_MODEL_URL=http://model:8081. Empty = AI features off.
+      WORK_AI_MODEL_URL: ${WORK_AI_MODEL_URL:-}
+      WORK_AI_MODEL_NAME: ${WORK_AI_MODEL_NAME:-work-assistant}
+      WORK_AI_MAX_OUTPUT_TOKENS: ${WORK_AI_MAX_OUTPUT_TOKENS:-1024}
     volumes:
       - uploads:/data/uploads
     depends_on:
@@ -106,6 +112,30 @@ services:
       timeout: 3s
       retries: 10
     networks: [internal]
+    restart: unless-stopped
+
+  # The local language model: llama.cpp serving a GGUF file you put into WORK_AI_MODEL_DIR. It lives on
+  # the internal network only (no published port, no internet), and mounts the model read-only.
+  model:
+    profiles: [ai]
+    image: ${WORK_AI_SERVER_IMAGE:-ghcr.io/ggml-org/llama.cpp:server}
+    command:
+      [
+        '-m',
+        '/models/${WORK_AI_MODEL_FILE:-work-assistant.gguf}',
+        '--host',
+        '0.0.0.0',
+        '--port',
+        '8081',
+        '--ctx-size',
+        '8192',
+      ]
+    volumes:
+      - ${WORK_AI_MODEL_DIR:-./models}:/models:ro
+    networks: [internal]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
     restart: unless-stopped
 
   mailpit:
