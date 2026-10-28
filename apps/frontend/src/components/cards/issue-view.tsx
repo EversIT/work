@@ -56,6 +56,7 @@ import { CollabField } from '../rich/collab-field';
 import { FieldEditor } from './field-editor';
 import { IssueActivity } from './issue-activity';
 import { InlineTitle } from './inline-title';
+import { LinkedIssues } from './linked-issues';
 
 /** Details-panel order, like Jira's right-hand column. */
 const DETAIL_ORDER = [
@@ -301,6 +302,12 @@ export function IssueView({
               </ul>
             </section>
           )}
+          <LinkedIssues
+            cardId={card.id}
+            canWrite={canWrite}
+            stages={list?.stages}
+            listId={primary?.list_id}
+          />
           <IssueActivity
             cardId={card.id}
             projectId={ctx.workspace?.project_id}

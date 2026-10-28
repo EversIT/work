@@ -696,7 +696,27 @@
       "history": "History"
     },
     "breadcrumb": "Breadcrumb",
-    "notFound": "This issue does not exist, or you cannot open it."
+    "notFound": "This issue does not exist, or you cannot open it.",
+    "linkedIssues": "Linked work items",
+    "addLink": "Add linked work item",
+    "link": "Link",
+    "relationship": "Relationship",
+    "searchIssue": "Search by key or summary",
+    "noLinks": "No linked work items.",
+    "removeLink": "Remove link to {key}",
+    "relation": {
+      "blocks": "blocks",
+      "is_blocked_by": "is blocked by",
+      "duplicates": "duplicates",
+      "is_duplicated_by": "is duplicated by",
+      "relates": "relates to",
+      "clones": "clones",
+      "is_cloned_by": "is cloned by"
+    },
+    "linkAdded": "linked: {relation} {key}",
+    "linkRemoved": "unlinked: {relation} {key}",
+    "similarIssues": "Similar issues",
+    "possibleDuplicate": "Possible duplicate"
   },
   "nav": {
     "account": "Account",

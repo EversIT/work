@@ -47,6 +47,7 @@ pub fn api(max_upload: usize) -> (Router<AppState>, utoipa::openapi::OpenApi) {
         .merge(crate::routes::lists::router())
         .merge(crate::routes::card_types::router())
         .merge(crate::routes::cards::router())
+        .merge(crate::routes::links::router())
         .merge(services::collab::router())
         .merge(crate::routes::activities::router())
         .merge(crate::routes::notifications::router())

@@ -8,6 +8,7 @@ mod collab;
 mod domain;
 mod harness;
 mod hooks;
+mod links;
 mod migrate;
 mod passkeys;
 mod security;

@@ -696,7 +696,27 @@
       "history": "Verlauf"
     },
     "breadcrumb": "Brotkrumen",
-    "notFound": "Diesen Vorgang gibt es nicht, oder du kannst ihn nicht öffnen."
+    "notFound": "Diesen Vorgang gibt es nicht, oder du kannst ihn nicht öffnen.",
+    "linkedIssues": "Verknüpfte Vorgänge",
+    "addLink": "Verknüpften Vorgang hinzufügen",
+    "link": "Verknüpfen",
+    "relationship": "Beziehung",
+    "searchIssue": "Nach Key oder Titel suchen",
+    "noLinks": "Keine verknüpften Vorgänge.",
+    "removeLink": "Verknüpfung zu {key} entfernen",
+    "relation": {
+      "blocks": "blockiert",
+      "is_blocked_by": "wird blockiert von",
+      "duplicates": "dupliziert",
+      "is_duplicated_by": "wird dupliziert von",
+      "relates": "hängt zusammen mit",
+      "clones": "klont",
+      "is_cloned_by": "wird geklont von"
+    },
+    "linkAdded": "verknüpft: {relation} {key}",
+    "linkRemoved": "Verknüpfung entfernt: {relation} {key}",
+    "similarIssues": "Ähnliche Vorgänge",
+    "possibleDuplicate": "Mögliches Duplikat"
   },
   "nav": {
     "account": "Konto",

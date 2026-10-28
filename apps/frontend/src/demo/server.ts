@@ -86,6 +86,25 @@ const db = {
   views: seedLists.flatMap((l) => defaultViews(l.id)),
   cards: seedCards(),
   activities: seedActivities(),
+  links: [
+    {
+      id: uid(9001),
+      source_card_id: uid(1002),
+      target_card_id: uid(1003),
+      link_type: 'blocks',
+    },
+    {
+      id: uid(9002),
+      source_card_id: uid(1001),
+      target_card_id: uid(1004),
+      link_type: 'relates',
+    },
+  ] as {
+    id: string;
+    source_card_id: string;
+    target_card_id: string;
+    link_type: string;
+  }[],
   notifications: seedNotifications(),
   branding: {
     accent: '#0b66e4',
@@ -887,6 +906,63 @@ on('DELETE', '/cards/{id}', ({ p }) => {
 on('GET', '/cards/{id}/children', ({ p }) =>
   ok(db.cards.filter((c) => c.parent_id === p[0])),
 );
+const LINK_TYPES = ['blocks', 'duplicates', 'relates', 'clones'];
+const linkOut = (l: (typeof db.links)[number], id: string) => {
+  const outward = l.source_card_id === id;
+  const other = card(outward ? l.target_card_id : l.source_card_id);
+  return (
+    other && {
+      id: l.id,
+      link_type: l.link_type,
+      direction: outward || l.link_type === 'relates' ? 'outward' : 'inward',
+      card: other,
+    }
+  );
+};
+on('GET', '/cards/{id}/links', ({ p }) =>
+  ok(
+    db.links
+      .filter((l) => l.source_card_id === p[0] || l.target_card_id === p[0])
+      .map((l) => linkOut(l, p[0]))
+      .filter(Boolean),
+  ),
+);
+on('POST', '/cards/{id}/links', ({ p, b }) => {
+  const type = String(b.link_type);
+  const target = String(b.target_id);
+  const bad = (error: string): Result => ({ status: 400, data: { error } });
+  if (!LINK_TYPES.includes(type)) return bad('unknown link type');
+  if (target === p[0]) return bad('an issue cannot be linked to itself');
+  if (!card(p[0]) || !card(target)) return notFound();
+  const inward = b.direction === 'inward';
+  const [source, to] = inward ? [target, p[0]] : [p[0], target];
+  const taken = db.links.some(
+    (l) =>
+      l.link_type === type &&
+      ((l.source_card_id === source && l.target_card_id === to) ||
+        (l.source_card_id === to && l.target_card_id === source)),
+  );
+  if (taken) return { status: 409, data: { error: 'conflict' } };
+  const l = {
+    id: crypto.randomUUID(),
+    source_card_id: source,
+    target_card_id: to,
+    link_type: type,
+  };
+  db.links.push(l);
+  return ok(linkOut(l, p[0]));
+});
+on('DELETE', '/cards/{id}/links/{linkId}', ({ p }) => {
+  const before = db.links.length;
+  db.links = db.links.filter(
+    (l) =>
+      !(
+        l.id === p[1] &&
+        (l.source_card_id === p[0] || l.target_card_id === p[0])
+      ),
+  );
+  return db.links.length === before ? notFound() : done();
+});
 on('GET', '/cards/{id}/activities', ({ p }) =>
   ok(
     db.activities
