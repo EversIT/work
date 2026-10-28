@@ -1,13 +1,15 @@
 //! Configuration is read from the environment only. No secret has a default value:
 //! a missing or weak secret stops the server at startup.
 
+mod ai;
 mod sso;
 pub mod storage;
 
 use std::{env, net::SocketAddr};
 
-use self::{sso::sso_from_env, storage::storage_from_env};
+use self::{ai::ai_from_env, sso::sso_from_env, storage::storage_from_env};
 pub use self::{
+    ai::{AiConfig, DEFAULT_MAX_OUTPUT_TOKENS, DEFAULT_MODEL_NAME},
     sso::{OAuthProvider, OidcMeta, OidcSettings, SamlConfig, SsoConfig},
     storage::StorageConfig,
 };
@@ -50,6 +52,9 @@ pub struct Config {
     /// Passkeys are bound to this domain (default: the host of `WORK_FRONTEND_URL`). May name a
     /// parent domain so one passkey works across subdomains.
     pub webauthn_rp_id: Option<String>,
+    /// The self-hosted language model from the environment. An admin can set or replace it in the
+    /// app (Administration → AI); that choice wins. `None` and nothing set there: the AI features are off.
+    pub ai: Option<AiConfig>,
 }
 
 #[derive(Clone)]
@@ -239,6 +244,7 @@ impl Config {
                 .ok()
                 .map(|v| v.trim().to_lowercase())
                 .filter(|v| !v.is_empty()),
+            ai: ai_from_env()?,
         })
     }
 }
@@ -273,6 +279,7 @@ impl Config {
             storage: Default::default(),
             scheduler: false,
             webauthn_rp_id: None,
+            ai: None,
         }
     }
 }

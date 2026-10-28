@@ -1,6 +1,8 @@
 pub mod account_mail;
 pub mod activities;
 pub mod admin;
+pub mod ai;
+pub mod ai_reports;
 pub mod api_tokens;
 pub mod auth;
 pub mod card_types;

@@ -20,6 +20,12 @@ pub enum ApiError {
     Conflict,
     #[error("too many requests")]
     TooManyRequests,
+    /// An optional feature (the AI assistant) that this instance has not switched on.
+    #[error("{0}")]
+    Unavailable(&'static str),
+    /// A service this one depends on (the AI provider) failed or did not answer.
+    #[error("{0}")]
+    BadGateway(&'static str),
     #[error("internal error")]
     Internal(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
@@ -53,6 +59,8 @@ impl IntoResponse for ApiError {
             ApiError::TooManyRequests => {
                 (StatusCode::TOO_MANY_REQUESTS, "too many requests".into())
             }
+            ApiError::Unavailable(m) => (StatusCode::SERVICE_UNAVAILABLE, (*m).into()),
+            ApiError::BadGateway(m) => (StatusCode::BAD_GATEWAY, (*m).into()),
             ApiError::Internal(e) => {
                 // Details go to the log, never to the client.
                 tracing::error!(error = %e, "internal error");
