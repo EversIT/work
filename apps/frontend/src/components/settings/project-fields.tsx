@@ -43,7 +43,7 @@ export function ProjectFields({
 
   return (
     <EditScope canEdit={canEdit}>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         <Panel testId="project-fields">
           <Panel.Header>
             <div>

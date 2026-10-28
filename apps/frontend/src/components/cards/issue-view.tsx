@@ -313,7 +313,8 @@ export function IssueView({
               <Dropdown.Trigger
                 className={buttonVariants({
                   variant: 'secondary',
-                  className: 'h-10 w-full justify-between px-3',
+                  className:
+                    'h-10 w-full !flex !flex-row !items-center justify-between px-3',
                 })}
                 data-testid="status-button"
                 aria-label={t('status')}

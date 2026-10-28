@@ -21,7 +21,7 @@ import { useWorkspaceCtx } from './workspace-context';
 import { useAiStatus } from '../../lib/ai';
 
 /** Top-bar issue search: type a summary, or an issue key such as WORK-12 and press Enter. */
-export function SearchBox() {
+export function SearchBox({ className = 'max-w-xs' }: { className?: string }) {
   const t = useTranslations('nav');
   const router = useRouter();
   const ctx = useWorkspaceCtx();
@@ -153,7 +153,7 @@ export function SearchBox() {
   };
 
   return (
-    <search ref={box} className="relative block w-full max-w-xs">
+    <search ref={box} className={`relative block w-full ${className}`}>
       <SearchField
         fullWidth
         aria-label={t('search')}

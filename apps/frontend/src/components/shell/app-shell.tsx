@@ -9,6 +9,7 @@ import { parseIssueKey } from '../../lib/routes';
 import { isDemo } from '../../demo';
 import { CreateIssueProvider } from './create-issue-context';
 import { CreateProjectProvider } from './create-project-context';
+import { MobileNav } from './mobile-nav';
 import { SideNav } from './side-nav';
 import { TopNav } from './top-nav';
 import { WorkspaceProvider } from './workspace-context';
@@ -47,7 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     /^\/projects\/[^/]+\/lists\//.test(pathname) &&
     !pathname.includes('/settings');
 
-  const chrome = (inner: React.ReactNode) => (
+  const chrome = (inner: React.ReactNode, hasMenu = false) => (
     <div className="flex min-h-screen flex-col bg-surface text-foreground">
       {isDemo() && (
         <p
@@ -57,7 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {t('banner')}
         </p>
       )}
-      <TopNav onMenu={drawer.open} showMenu={inProject} />
+      <TopNav onMenu={drawer.open} showMenu={hasMenu} />
       {inner}
     </div>
   );
@@ -98,21 +99,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <SideNav />
                 </aside>
               )}
-              {inProject && (
-                <Drawer state={drawer}>
-                  <Drawer.Backdrop>
-                    <Drawer.Content placement="left">
-                      <Drawer.Dialog className="w-72">
-                        <Drawer.Body className="p-0">
-                          <SideNav onNavigate={drawer.close} />
-                        </Drawer.Body>
-                      </Drawer.Dialog>
-                    </Drawer.Content>
-                  </Drawer.Backdrop>
-                </Drawer>
-              )}
+              <Drawer state={drawer}>
+                <Drawer.Backdrop>
+                  <Drawer.Content placement="left">
+                    <Drawer.Dialog className="w-[85vw] max-w-80">
+                      <Drawer.Body className="p-0">
+                        <MobileNav
+                          inProject={inProject}
+                          onNavigate={drawer.close}
+                        />
+                      </Drawer.Body>
+                    </Drawer.Dialog>
+                  </Drawer.Content>
+                </Drawer.Backdrop>
+              </Drawer>
               <main className="min-w-0 flex-1">{children}</main>
             </div>,
+            true,
           )}
         </CreateProjectProvider>
       </CreateIssueProvider>

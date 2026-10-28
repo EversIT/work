@@ -189,58 +189,73 @@ export function CreateIssueDialog({
             {error}
           </p>
         )}
-        {!initialList && (
-          <SimpleSelect
-            label={t('project')}
-            value={listId}
-            onChange={(v) => {
-              setListId(v);
-              setTypeId(null);
-            }}
-            options={ctx.lists.map((l) => ({
-              value: l.id,
-              label: `${l.name} (${l.spaceName})`,
-            }))}
-            testId="create-project"
-          />
-        )}
-        <SimpleSelect
-          label={t('issueType')}
-          value={activeType?.id ?? null}
-          onChange={(v) => v && setTypeId(v)}
-          options={ctx.cardTypes
-            .filter((c) => !parentId || c.icon === 'subtask')
-            .map((c) => ({ value: c.id, label: c.name }))}
-          testId="create-type"
-        />
-        {fields.map((f) => (
-          <div key={f.id}>
-            <FieldInput
-              field={f}
-              value={values[f.slug]}
-              members={members}
-              onChange={(v) => setData((d) => ({ ...d, [f.slug]: v }))}
-              label={f.is_title ? `${f.name} *` : f.name}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {!initialList && (
+            <SimpleSelect
+              label={t('project')}
+              value={listId}
+              onChange={(v) => {
+                setListId(v);
+                setTypeId(null);
+              }}
+              options={ctx.lists.map((l) => ({
+                value: l.id,
+                label: `${l.name} (${l.spaceName})`,
+              }))}
+              testId="create-project"
             />
-            {f.id === assignee?.id && ctx.me && (
-              <Button
-                type="button"
+          )}
+          <SimpleSelect
+            label={t('issueType')}
+            value={activeType?.id ?? null}
+            onChange={(v) => v && setTypeId(v)}
+            options={ctx.cardTypes
+              .filter((c) => !parentId || c.icon === 'subtask')
+              .map((c) => ({ value: c.id, label: c.name }))}
+            testId="create-type"
+          />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {fields.map((f) => (
+            <div
+              key={f.id}
+              className={
+                f.is_title
+                  ? 'sm:col-span-2 [&_input]:rounded-none [&_input]:border-0 [&_input]:border-b [&_input]:border-border [&_input]:bg-transparent [&_input]:px-0 [&_input]:text-xl [&_input]:font-medium [&_input]:shadow-none'
+                  : f.is_description ||
+                      f.type === 'rich' ||
+                      f.type === 'text_area'
+                    ? 'sm:col-span-2'
+                    : undefined
+              }
+            >
+              <FieldInput
+                field={f}
+                value={values[f.slug]}
+                members={members}
+                onChange={(v) => setData((d) => ({ ...d, [f.slug]: v }))}
+                label={f.is_title ? `${f.name} *` : f.name}
+              />
+              {f.id === assignee?.id && ctx.me && (
+                <Button
+                  type="button"
 
-                onPress={() =>
-                  setData((d) => ({
-                    ...d,
-                    [f.slug]: f.multiple ? [ctx.me?.id] : ctx.me?.id,
-                  }))
-                }
-                variant="ghost"
-                size="sm"
-                className="mt-1 h-auto px-0 text-xs text-accent"
-              >
-                {t('assignToMe')}
-              </Button>
-            )}
-          </div>
-        ))}
+                  onPress={() =>
+                    setData((d) => ({
+                      ...d,
+                      [f.slug]: f.multiple ? [ctx.me?.id] : ctx.me?.id,
+                    }))
+                  }
+                  variant="ghost"
+                  size="sm"
+                  className="mt-1 h-auto px-0 text-xs text-accent"
+                >
+                  {t('assignToMe')}
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
         {ctx.workspace && (
           <AiCreateHelper
             workspaceId={ctx.workspace.id}
