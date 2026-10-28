@@ -70,9 +70,17 @@ function Node({ node }: { node: JSONContent }): ReactNode {
       );
     case 'codeBlock':
       return (
-        <pre className="overflow-x-auto rounded bg-surface-tertiary p-2 font-mono text-xs">
-          <code>{kids}</code>
-        </pre>
+        <figure className="overflow-hidden rounded-md border border-separator bg-surface-secondary">
+          {typeof node.attrs?.language === 'string' &&
+            node.attrs.language !== 'plaintext' && (
+              <figcaption className="border-b border-separator px-3 py-1 text-xs text-muted">
+                {node.attrs.language}
+              </figcaption>
+            )}
+          <pre className="overflow-x-auto p-3 font-mono text-xs">
+            <code>{kids}</code>
+          </pre>
+        </figure>
       );
     case 'hardBreak':
       return <br />;
