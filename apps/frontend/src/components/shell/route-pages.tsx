@@ -59,13 +59,20 @@ export function ProjectSettingsRoute({
 export function AutomationRoute({
   id,
   listId,
+  describe,
 }: {
   id: string;
   listId?: string;
+  describe?: string;
 }) {
   const { workspaceId } = useWorkspaceCtx();
   return (
-    <AutomationBuilder workspaceId={workspaceId} id={id} listId={listId} />
+    <AutomationBuilder
+      workspaceId={workspaceId}
+      id={id}
+      listId={listId}
+      describe={describe}
+    />
   );
 }
 

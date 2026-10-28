@@ -34,6 +34,7 @@ import { GROUPABLE } from '../../lib/grouping';
 import { fullName } from '../../lib/format';
 import { IssueView } from '../cards/issue-view';
 import { useWorkspaceCtx } from '../shell/workspace-context';
+import { BoardSummaryButton } from './ai-reports';
 import { UserAvatar } from '../shell/user-avatar';
 import { FormDialog } from '../ui/form-dialog';
 import { SimpleSelect, TextInput } from '../ui/inputs';
@@ -358,6 +359,12 @@ export function ListPage({
             testId="type-filter"
           />
         </div>
+        {view?.type === 'board' && (
+          <BoardSummaryButton
+            listId={list.id}
+            keyPrefix={ctx.workspace?.key_prefix ?? ''}
+          />
+        )}
         <Popover>
           <Button size="sm" variant="tertiary" data-testid="filters">
             <Filter size={14} />
@@ -372,6 +379,8 @@ export function ListPage({
                 fields={fields}
                 stages={list.stages}
                 members={ctx.members}
+                cardTypes={ctx.cardTypes}
+                meId={ctx.me?.id}
               />
             </Popover.Dialog>
           </Popover.Content>

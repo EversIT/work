@@ -3,6 +3,7 @@
 import { Tabs } from '@heroui/react';
 import { useTranslations } from 'next-intl';
 import { useCurrentUser } from '../../lib/hooks';
+import { AiSettings } from './ai-settings';
 import { Appearance } from './appearance';
 import { AuditLog } from './audit-log';
 import { Overview } from './overview';
@@ -31,7 +32,14 @@ export function AdminPage() {
         <Tabs.ListContainer>
           <Tabs.List aria-label={t('title')}>
             {(
-              ['overview', 'users', 'projects', 'appearance', 'audit'] as const
+              [
+                'overview',
+                'users',
+                'projects',
+                'ai',
+                'appearance',
+                'audit',
+              ] as const
             ).map((id) => (
               <Tabs.Tab key={id} id={id} data-testid={`admin-tab-${id}`}>
                 {t(`tab.${id}`)}
@@ -48,6 +56,9 @@ export function AdminPage() {
         </Tabs.Panel>
         <Tabs.Panel id="projects" className="pt-4">
           <Projects />
+        </Tabs.Panel>
+        <Tabs.Panel id="ai" className="pt-4">
+          <AiSettings />
         </Tabs.Panel>
         <Tabs.Panel id="appearance" className="pt-4">
           <Appearance />

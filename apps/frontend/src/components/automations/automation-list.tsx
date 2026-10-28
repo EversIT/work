@@ -11,7 +11,14 @@ import {
   toast,
 } from '@heroui/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Copy, MoreHorizontal, Plus, Zap } from 'lucide-react';
+import {
+  ArrowRight,
+  Copy,
+  MoreHorizontal,
+  Plus,
+  Sparkles,
+  Zap,
+} from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -29,9 +36,10 @@ import { body, errorKind, serverMessage } from '../../lib/api';
 import { useWorkspace } from '../../lib/hooks';
 import { FormDialog } from '../ui/form-dialog';
 import { JiraDialog } from '../ui/jira-dialog';
-import { ReadonlyField } from '../ui/inputs';
+import { ReadonlyField, TextInput } from '../ui/inputs';
 import { Panel } from '../ui/settings';
 import { Runs } from './parts';
+import { useAiStatus } from '../../lib/ai';
 
 /**
  * The rules of a workspace, or of one project. Creating or editing a rule opens its own page (the
@@ -51,6 +59,7 @@ export function AutomationList({
   const locale = useLocale();
   const router = useRouter();
   const qc = useQueryClient();
+  const ai = useAiStatus();
   const tree = body(useGetWorkspaceTree(workspaceId).data);
   const all = body(useListAutomations(workspaceId).data) ?? [];
   const update = useUpdateAutomation();
@@ -74,8 +83,10 @@ export function AutomationList({
   const fail = (e: unknown) =>
     toast.danger(serverMessage(e) ?? te(errorKind(e)));
   const wsKey = useWorkspace(workspaceId)?.key_prefix ?? '';
-  const open = (id: string) =>
-    router.push(routes.automation(wsKey, id, listId));
+  const open = (id: string, describe?: string) =>
+    router.push(routes.automation(wsKey, id, listId, describe));
+  // The sentence of "Create with AI"; `null` while the dialog is closed.
+  const [prompt, setPrompt] = useState<string | null>(null);
   const scopeName = (a: AutomationOut) => {
     const ls = lists_of(a);
     if (ls.length === 0) return t('allLists');
@@ -134,14 +145,27 @@ export function AutomationList({
     <div className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-4">
         <p className="text-sm text-muted">{t('adminOnly')}</p>
-        <Button
-          size="sm"
-          onPress={() => open('new')}
-          data-testid="new-automation"
-        >
-          <Plus size={14} />
-          {t('new')}
-        </Button>
+        <div className="flex gap-2">
+          {ai && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onPress={() => setPrompt('')}
+              data-testid="new-automation-ai"
+            >
+              <Sparkles size={14} />
+              {t('createWithAi')}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            onPress={() => open('new')}
+            data-testid="new-automation"
+          >
+            <Plus size={14} />
+            {t('new')}
+          </Button>
+        </div>
       </div>
 
       {items.length === 0 ? (
@@ -303,6 +327,40 @@ export function AutomationList({
         <p className="text-xs text-muted" data-testid="workspace-wide-note">
           {t('workspaceWide', { count: workspaceWide })}
         </p>
+      )}
+
+      {prompt !== null && (
+        <JiraDialog
+          isOpen
+          onClose={() => setPrompt(null)}
+          title={t('createWithAi')}
+          testId="ai-rule-dialog"
+          footer={
+            <>
+              <Button
+                isDisabled={!prompt.trim()}
+                onPress={() => open('new', prompt.trim())}
+                data-testid="ai-rule-go"
+              >
+                {t('draftRule')}
+              </Button>
+              <Button variant="tertiary" onPress={() => setPrompt(null)}>
+                {t('cancel')}
+              </Button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-2 pb-2">
+            <TextInput
+              label={t('describeRule')}
+              placeholder={t('describePlaceholder')}
+              value={prompt}
+              onChange={setPrompt}
+              maxLength={500}
+            />
+            <p className="text-xs text-muted">{t('describeHint')}</p>
+          </div>
+        </JiraDialog>
       )}
 
       {runsAutomation && (

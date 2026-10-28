@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Button,
   Dropdown,
@@ -29,6 +30,7 @@ import {
   useUpdateCard,
   putCardSprint,
 } from '../../api/generated/cards/cards';
+import type { FieldSuggestion } from '../../api/generated/model';
 import { useGetList } from '../../api/generated/lists/lists';
 import { useListSprints } from '../../api/generated/sprints/sprints';
 import {
@@ -47,6 +49,8 @@ import { useWorkspaceCtx } from '../shell/workspace-context';
 import { JiraDialog } from '../ui/jira-dialog';
 import { Panel } from '../ui/settings';
 import { SimpleSelect } from '../ui/inputs';
+import { AiAssistant } from './ai-assistant';
+import { InlineSuggestion, SuggestFieldsButton } from './ai-details';
 import { CrmHeader } from './crm-header';
 import { CollabField } from '../rich/collab-field';
 import { FieldEditor } from './field-editor';
@@ -98,6 +102,8 @@ export function IssueView({
   const canWrite =
     ctx.members.find((m) => m.user_id === ctx.me?.id)?.role !== 'viewer';
   const del = useDeleteCard();
+  // Values suggested for empty fields, shown under the field until accepted.
+  const [suggested, setSuggested] = useState<FieldSuggestion[]>([]);
   const putList = usePutCardList();
   const children = body(useGetCardChildren(cardId).data) ?? [];
   const primary = card?.lists[0];
@@ -227,6 +233,23 @@ export function IssueView({
               )}
             </section>
           )}
+          {description?.type === 'rich' && canWrite && (
+            <div className="-mt-3 flex flex-wrap gap-2">
+              <AiAssistant
+                shortcut={card.data[description.slug] ? 'improve' : 'draft'}
+                card={card}
+                canWrite={canWrite}
+                descriptionSlug={description.slug}
+                titleSlug={title?.slug}
+                title={
+                  title && typeof card.data[title.slug] === 'string'
+                    ? (card.data[title.slug] as string)
+                    : ''
+                }
+                kind={type?.name}
+              />
+            </div>
+          )}
           {children.length > 0 && (
             <section aria-label={t('childIssues')}>
               <div className="mb-2 flex items-center justify-between">
@@ -332,6 +355,9 @@ export function IssueView({
           <Panel testId="issue-details">
             <Panel.Header className="py-3">
               <Panel.Title>{t('details')}</Panel.Title>
+              {canWrite && (
+                <SuggestFieldsButton cardId={card.id} onResult={setSuggested} />
+              )}
             </Panel.Header>
             <div className="inline-fields flex flex-col py-1.5">
               {details.map((f) => (
@@ -343,6 +369,22 @@ export function IssueView({
                     hideLabel
                     onCommit={(v) => patch(f.slug, v)}
                   />
+                  {canWrite &&
+                    !card.data[f.slug] &&
+                    suggested
+                      .filter((x) => x.slug === f.slug)
+                      .map((x) => (
+                        <InlineSuggestion
+                          key={x.slug}
+                          suggestion={x}
+                          onAccept={() => {
+                            setSuggested((all) =>
+                              all.filter((y) => y.slug !== x.slug),
+                            );
+                            void patch(f.slug, x.value);
+                          }}
+                        />
+                      ))}
                   {f.is_assignee && canWrite && mine && !assignedToMe && (
                     <button
                       type="button"
@@ -404,6 +446,14 @@ export function IssueView({
 
   const actions = card && (
     <div className="flex items-center gap-1">
+      <AiAssistant
+        card={card}
+        canWrite={canWrite}
+        titleSlug={title?.slug}
+        descriptionSlug={
+          description?.type === 'rich' ? description.slug : undefined
+        }
+      />
       <Button
         size="sm"
         variant="tertiary"

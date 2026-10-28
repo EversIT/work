@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { putCardList, putCardSprint } from '../../api/generated/cards/cards';
+import { BacklogAssistant } from './ai-reports';
 import { useGetListBySlug } from '../../api/generated/lists/lists';
 import type { CardOut, SprintOut } from '../../api/generated/model';
 import {
@@ -194,23 +195,29 @@ export function BacklogPage({
         >
           {t('title')}
         </h1>
-        <Button
-          size="sm"
-          variant="secondary"
-          isPending={createSprint.isPending}
-          data-testid="create-sprint"
-          onPress={async () => {
-            try {
-              await createSprint.mutateAsync({ id: list.id, data: {} });
-              await qc.invalidateQueries();
-            } catch (e) {
-              fail(e);
-            }
-          }}
-        >
-          <Plus size={14} />
-          {t('createSprint')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <BacklogAssistant
+            listId={list.id}
+            planned={live.filter((s) => s.state === 'planned')}
+          />
+          <Button
+            size="sm"
+            variant="secondary"
+            isPending={createSprint.isPending}
+            data-testid="create-sprint"
+            onPress={async () => {
+              try {
+                await createSprint.mutateAsync({ id: list.id, data: {} });
+                await qc.invalidateQueries();
+              } catch (e) {
+                fail(e);
+              }
+            }}
+          >
+            <Plus size={14} />
+            {t('createSprint')}
+          </Button>
+        </div>
       </div>
 
       {sections.map((sec) => {

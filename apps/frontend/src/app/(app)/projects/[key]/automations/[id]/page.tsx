@@ -5,9 +5,9 @@ export default async function Page({
   searchParams,
 }: {
   params: Promise<{ key: string; id: string }>;
-  searchParams: Promise<{ list?: string }>;
+  searchParams: Promise<{ list?: string; describe?: string }>;
 }) {
   const { id } = await params;
-  const { list } = await searchParams;
-  return <AutomationRoute id={id} listId={list} />;
+  const { list, describe } = await searchParams;
+  return <AutomationRoute id={id} listId={list} describe={describe} />;
 }

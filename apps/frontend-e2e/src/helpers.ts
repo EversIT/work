@@ -93,6 +93,23 @@ export async function register(page: Page, u = newUser()) {
   return u;
 }
 
+/**
+ * Are the AI features on? They are while the administrator has set a language model (admin.spec.ts);
+ * the search box then offers "Ask" for a sentence. The access token lives only in the page, so the
+ * app itself is asked.
+ */
+export async function aiEnabled(page: Page): Promise<boolean> {
+  const search = page.getByTestId('top-search');
+  await search.fill('issues created today');
+  const on = await page
+    .getByTestId('ask-ai')
+    .waitFor({ timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false);
+  await search.fill('');
+  return on;
+}
+
 export async function login(
   page: Page,
   u: { email: string; password: string },

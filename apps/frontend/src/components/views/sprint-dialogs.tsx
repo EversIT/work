@@ -2,6 +2,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
+import { SprintNotes } from './ai-reports';
 import { useState } from 'react';
 import {
   useCompleteSprint,
@@ -120,6 +121,7 @@ export function CompleteSprintDialog({
       <p className="text-sm">
         {t('completeSummary', { done: sprint.done_count, open })}
       </p>
+      <SprintNotes sprint={sprint} />
       {open > 0 && (
         <SimpleSelect
           label={t('moveOpenTo')}
