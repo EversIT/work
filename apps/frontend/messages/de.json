@@ -363,7 +363,14 @@
     "viewSettings": "Ansichtseinstellungen",
     "groupBy": "Gruppieren nach",
     "noGrouping": "Keine Gruppierung",
-    "noValue": "Kein Wert"
+    "noValue": "Kein Wert",
+    "describeFilter": "Filter beschreiben",
+    "describePlaceholder": "Fehler, die mir zugewiesen sind, hohe Priorität, letzte Woche erstellt",
+    "describeApply": "Anwenden",
+    "describeNone": "Aus diesem Satz ließ sich keine Bedingung machen. Versuche Vorgangstypen, Personen, Prioritäten, Status oder Zeiträume.",
+    "issueType": "Vorgangstyp",
+    "createdAt": "Erstellt",
+    "updatedAt": "Aktualisiert"
   },
   "workspace": {
     "lists": "Listen",
@@ -631,7 +638,30 @@
     "createProject": "Projekt erstellen",
     "recent": "Zuletzt",
     "workspaces": "Workspaces",
-    "admin": "Administration"
+    "admin": "Administration",
+    "askRow": "Fragen: „{q}“",
+    "askUnderstood": "Verstanden als",
+    "askNothing": "Das konnte ich nicht in Bedingungen übersetzen. Versuche Vorgangstypen, Personen, Prioritäten, Status oder Zeiträume.",
+    "askResults": "Ergebnisse",
+    "askDays": "letzte {n} Tage",
+    "askKind": {
+      "type": "Typ",
+      "status": "Status",
+      "assignee": "Bearbeiter",
+      "created": "Erstellt",
+      "updated": "Aktualisiert",
+      "text": "Titel enthält",
+      "field": "Feld"
+    },
+    "askValue": {
+      "me": "ich",
+      "unassigned": "nicht zugewiesen",
+      "open": "offen",
+      "today": "heute",
+      "yesterday": "gestern",
+      "thisWeek": "diese Woche",
+      "thisMonth": "diesen Monat"
+    }
   },
   "apiTokens": {
     "confirmRevoke": "Dieses Token widerrufen? Integrationen, die es nutzen, hören sofort auf zu funktionieren.",

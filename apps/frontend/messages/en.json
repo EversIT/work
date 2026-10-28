@@ -363,7 +363,14 @@
     "viewSettings": "View settings",
     "groupBy": "Group by",
     "noGrouping": "No grouping",
-    "noValue": "No value"
+    "noValue": "No value",
+    "describeFilter": "Describe the filter",
+    "describePlaceholder": "bugs assigned to me, high priority, created last week",
+    "describeApply": "Apply",
+    "describeNone": "Nothing in that sentence could be turned into a condition. Try issue types, people, priorities, statuses or periods.",
+    "issueType": "Issue type",
+    "createdAt": "Created",
+    "updatedAt": "Updated"
   },
   "workspace": {
     "lists": "Lists",
@@ -631,7 +638,30 @@
     "createProject": "Create project",
     "recent": "Recent",
     "workspaces": "Workspaces",
-    "admin": "Administration"
+    "admin": "Administration",
+    "askRow": "Ask: “{q}”",
+    "askUnderstood": "Understood as",
+    "askNothing": "I could not turn that into conditions. Try issue types, people, priorities, statuses or periods.",
+    "askResults": "Results",
+    "askDays": "last {n} days",
+    "askKind": {
+      "type": "Type",
+      "status": "Status",
+      "assignee": "Assignee",
+      "created": "Created",
+      "updated": "Updated",
+      "text": "Title contains",
+      "field": "Field"
+    },
+    "askValue": {
+      "me": "me",
+      "unassigned": "unassigned",
+      "open": "open",
+      "today": "today",
+      "yesterday": "yesterday",
+      "thisWeek": "this week",
+      "thisMonth": "this month"
+    }
   },
   "apiTokens": {
     "confirmRevoke": "Revoke this token? Integrations using it stop working immediately.",

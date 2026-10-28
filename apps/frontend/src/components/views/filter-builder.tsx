@@ -1,15 +1,29 @@
 'use client';
 
 import { Button } from '@heroui/react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Sparkles, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { FieldOut, StageOut } from '../../api/generated/model';
 import { fullName } from '../../lib/format';
+import {
+  parseFilterText,
+  TYPE_FIELD,
+  type FilterRow,
+} from '../../lib/filter-text';
 import { itemsOf } from '../cards/field-input';
 import { SimpleSelect, TextInput } from '../ui/inputs';
 import type { Member } from './types';
+import { useAiStatus } from '../../lib/ai';
 
-export type FilterRow = { field: string; operator: string; value: string };
+export type { FilterRow };
+
+const DATE_FIELDS = ['created_at', 'updated_at'];
+const DATE_OPS = ['gte', 'lte', 'gt', 'lt'];
+
+/** An RFC 3339 instant for a day picked in the builder (the server wants one for `created_at`). */
+const startOfDay = (v: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(v) ? `${v}T00:00:00Z` : v;
 
 const TEXT_OPS = ['like', 'eq', 'ne', 'isNull', 'isNotNull'];
 const NUM_OPS = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'isNull', 'isNotNull'];
@@ -38,6 +52,20 @@ function kind(
   }
 }
 
+/** What a row is about: the status, the issue type, one of the two dates, or one of the issue's fields. */
+function rowKind(slug: string, f: FieldOut | undefined) {
+  if (slug === 'stage' || slug === TYPE_FIELD) return 'stage' as const;
+  if (DATE_FIELDS.includes(slug)) return 'timestamp' as const;
+  return kind(f);
+}
+
+/** The field name the server knows for a row. */
+function targetOf(slug: string) {
+  if (slug === 'stage') return 'stage';
+  if (slug === TYPE_FIELD) return 'card_type_id';
+  return DATE_FIELDS.includes(slug) ? slug : `data.${slug}`;
+}
+
 export function rowsToFilter(
   rows: FilterRow[],
   fields: FieldOut[],
@@ -46,11 +74,11 @@ export function rowsToFilter(
     .filter((r) => r.field && r.operator)
     .map((r) => {
       const f = fields.find((x) => x.slug === r.field);
-      const k = r.field === 'stage' ? 'stage' : kind(f);
-      const target = r.field === 'stage' ? 'stage' : `data.${r.field}`;
+      const k = rowKind(r.field, f);
+      const target = targetOf(r.field);
       if (r.operator === 'isNull' || r.operator === 'isNotNull')
         return { field: target, operator: r.operator };
-      let value: unknown = r.value;
+      let value: unknown = k === 'timestamp' ? startOfDay(r.value) : r.value;
       if (k === 'number') value = Number(r.value);
       if (k === 'bool') value = r.value === 'true';
       if (k === 'pick' || k === 'stage') value = [r.value];
@@ -72,15 +100,20 @@ export function filterToRows(filters: unknown): FilterRow[] {
     } | null
   )?.and;
   if (!Array.isArray(and)) return [];
-  return and.map((c) => ({
-    field: String(c.field ?? '').replace(/^data\./, ''),
-    operator: String(c.operator ?? ''),
-    value: Array.isArray(c.value)
+  return and.map((c) => {
+    const raw = String(c.field ?? '').replace(/^data\./, '');
+    const field = raw === 'card_type_id' ? TYPE_FIELD : raw;
+    const value = Array.isArray(c.value)
       ? String(c.value[0] ?? '')
       : c.value === undefined
         ? ''
-        : String(c.value),
-  }));
+        : String(c.value);
+    return {
+      field,
+      operator: String(c.operator ?? ''),
+      value: DATE_FIELDS.includes(field) ? value.slice(0, 10) : value,
+    };
+  });
 }
 
 export function FilterBuilder({
@@ -89,16 +122,42 @@ export function FilterBuilder({
   fields,
   stages,
   members,
+  cardTypes = [],
+  meId,
 }: {
   rows: FilterRow[];
   onChange: (rows: FilterRow[]) => void;
   fields: FieldOut[];
   stages: StageOut[];
   members: Member[];
+  cardTypes?: { id: string; name: string; icon?: string }[];
+  /** The signed-in person, for "assigned to me" in a described filter. */
+  meId?: string;
 }) {
   const t = useTranslations('views');
+  const ai = useAiStatus();
+  const [sentence, setSentence] = useState('');
+  const [note, setNote] = useState<string | null>(null);
+  const describe = () => {
+    const parsed = parseFilterText(sentence, {
+      fields,
+      stages,
+      members,
+      cardTypes,
+      meId,
+    });
+    if (parsed.rows.length === 0) return setNote(t('describeNone'));
+    setNote(null);
+    onChange(parsed.rows);
+    setSentence('');
+  };
   const fieldOptions = [
     { value: 'stage', label: t('stage') },
+    ...(cardTypes.length > 0
+      ? [{ value: TYPE_FIELD, label: t('issueType') }]
+      : []),
+    { value: 'created_at', label: t('createdAt') },
+    { value: 'updated_at', label: t('updatedAt') },
     ...fields
       .filter(
         (f) => f.type !== 'rich' && f.type !== 'card' && f.type !== 'stage',
@@ -113,20 +172,51 @@ export function FilterBuilder({
       className="flex w-[min(92vw,36rem)] flex-col gap-3 p-3"
       data-testid="filter-builder"
     >
+      {ai && (
+        <form
+          className="flex items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            describe();
+          }}
+        >
+          <div className="min-w-0 flex-1">
+            <TextInput
+              label={t('describeFilter')}
+              placeholder={t('describePlaceholder')}
+              value={sentence}
+              onChange={setSentence}
+            />
+          </div>
+          <Button
+            type="submit"
+            size="sm"
+            variant="secondary"
+            isDisabled={!sentence.trim()}
+            data-testid="describe-filter"
+          >
+            <Sparkles size={14} />
+            {t('describeApply')}
+          </Button>
+        </form>
+      )}
+      {ai && note && <p className="text-sm text-muted">{note}</p>}
       {rows.length === 0 && (
         <p className="text-sm text-muted">{t('noFilters')}</p>
       )}
       {rows.map((r, i) => {
         const f = fields.find((x) => x.slug === r.field);
-        const k = r.field === 'stage' ? 'stage' : kind(f);
+        const k = rowKind(r.field, f);
         const ops =
-          k === 'number' || k === 'date'
-            ? NUM_OPS
-            : k === 'pick' || k === 'stage'
-              ? PICK_OPS
-              : k === 'bool'
-                ? ['eq']
-                : TEXT_OPS;
+          k === 'timestamp'
+            ? DATE_OPS
+            : k === 'number' || k === 'date'
+              ? NUM_OPS
+              : k === 'pick' || k === 'stage'
+                ? PICK_OPS
+                : k === 'bool'
+                  ? ['eq']
+                  : TEXT_OPS;
         const needsValue =
           r.operator !== 'isNull' && r.operator !== 'isNotNull';
         let valueInput: React.ReactNode = null;
@@ -137,7 +227,11 @@ export function FilterBuilder({
                 label={t('value')}
                 value={r.value || null}
                 onChange={(v) => set(i, { value: v ?? '' })}
-                options={stages.map((s) => ({ value: s.id, label: s.name }))}
+                options={
+                  r.field === TYPE_FIELD
+                    ? cardTypes.map((c) => ({ value: c.id, label: c.name }))
+                    : stages.map((s) => ({ value: s.id, label: s.name }))
+                }
               />
             );
           else if (k === 'pick' && f?.type === 'user')
@@ -178,7 +272,11 @@ export function FilterBuilder({
               <TextInput
                 label={t('value')}
                 type={
-                  k === 'number' ? 'number' : k === 'date' ? 'date' : 'text'
+                  k === 'number'
+                    ? 'number'
+                    : k === 'date' || k === 'timestamp'
+                      ? 'date'
+                      : 'text'
                 }
                 value={r.value}
                 onChange={(v) => set(i, { value: v })}
