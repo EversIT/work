@@ -19,6 +19,7 @@ import { AccountNotifications } from './account-notifications';
 import { AccountProfile } from './account-profile';
 import { AccountSecurity } from './account-security';
 import { ApiTokenSettings } from './api-token-settings';
+import { McpSettings } from './mcp-settings';
 import { SessionSettings } from './session-settings';
 import { SettingsShell, type NavGroup } from './settings-shell';
 
@@ -103,7 +104,12 @@ export function AccountSettingsShell({ segment }: { segment?: string }) {
         />
       )}
       {section === 'sessions' && <SessionSettings />}
-      {section === 'api-tokens' && <ApiTokenSettings />}
+      {section === 'api-tokens' && (
+        <div className="flex flex-col gap-4">
+          <ApiTokenSettings />
+          <McpSettings />
+        </div>
+      )}
     </SettingsShell>
   );
 }
