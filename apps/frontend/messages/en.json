@@ -1089,5 +1089,30 @@
         "description": "Personal tokens for scripts and integrations. They act with your permissions."
       }
     }
+  },
+  "mcp": {
+    "title": "MCP server for AI agents",
+    "description": "Let an AI agent (Claude Code, Cursor, any MCP client) work with your issues. The agent signs in with one of your API tokens above and can do what that token may do. This works whether or not the AI features are on.",
+    "endpoint": "Server address",
+    "endpointHelp": "Streamable HTTP. Send the token as \"Authorization: Bearer <token>\".",
+    "connect": "Connect Claude Code",
+    "otherClients": "Other MCP clients (JSON configuration):",
+    "copy": "Copy",
+    "copied": "Copied",
+    "tools": "What the agent can do",
+    "reads": "reads",
+    "writes": "writes",
+    "safety": "Create a read-only token for an agent that should only look: it cannot use the tools that write. Issue text is data for the agent, so review what an agent may do before you give it a write token.",
+    "tool": {
+      "list_projects": "Projects you belong to, with workspaces and key prefixes",
+      "list_lists": "Lists (boards, backlogs) of a workspace with statuses and fields",
+      "search_issues": "Search issues by text or filter",
+      "get_issue": "An issue with description, fields, child issues and comments",
+      "find_related_issues": "Related issues and likely duplicates",
+      "create_issue": "Create an issue",
+      "update_issue": "Change title, description and fields",
+      "transition_issue": "Move an issue to another status",
+      "add_comment": "Comment on an issue"
+    }
   }
 }

@@ -1089,5 +1089,30 @@
         "description": "Persönliche Tokens für Skripte und Integrationen. Sie handeln mit deinen Rechten."
       }
     }
+  },
+  "mcp": {
+    "title": "MCP-Server für KI-Agenten",
+    "description": "Lass einen KI-Agenten (Claude Code, Cursor, jeden MCP-Client) mit deinen Vorgängen arbeiten. Der Agent meldet sich mit einem deiner API-Tokens von oben an und darf, was dieses Token darf. Das funktioniert unabhängig davon, ob die KI-Funktionen an sind.",
+    "endpoint": "Serveradresse",
+    "endpointHelp": "Streamable HTTP. Das Token wird als „Authorization: Bearer <Token>“ gesendet.",
+    "connect": "Claude Code verbinden",
+    "otherClients": "Andere MCP-Clients (JSON-Konfiguration):",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "tools": "Was der Agent tun kann",
+    "reads": "liest",
+    "writes": "schreibt",
+    "safety": "Für einen Agenten, der nur schauen soll, lege ein Nur-Lese-Token an: Es kann die schreibenden Werkzeuge nicht benutzen. Der Text von Vorgängen ist für den Agenten nur Daten; prüfe trotzdem, was ein Agent darf, bevor du ihm ein Schreib-Token gibst.",
+    "tool": {
+      "list_projects": "Projekte, in denen du Mitglied bist, mit Arbeitsbereichen und Kürzeln",
+      "list_lists": "Listen (Boards, Backlogs) eines Arbeitsbereichs mit Status und Feldern",
+      "search_issues": "Vorgänge nach Text oder Filter suchen",
+      "get_issue": "Ein Vorgang mit Beschreibung, Feldern, Unteraufgaben und Kommentaren",
+      "find_related_issues": "Verwandte Vorgänge und wahrscheinliche Duplikate",
+      "create_issue": "Einen Vorgang anlegen",
+      "update_issue": "Titel, Beschreibung und Felder ändern",
+      "transition_issue": "Einen Vorgang in einen anderen Status verschieben",
+      "add_comment": "Einen Vorgang kommentieren"
+    }
   }
 }

@@ -11,6 +11,12 @@ test('API tokens: created once, work with Bearer and Jira-style Basic auth, read
   await expect(page.getByTestId('workspace-title')).toHaveText('Home');
   await page.goto('/settings/api-tokens');
 
+  // The MCP server is explained right below the tokens: address, how to connect, what it can do.
+  const mcp = page.getByTestId('mcp-settings');
+  await expect(mcp.getByTestId('mcp-url')).toHaveValue(/\/api\/v1\/mcp$/);
+  await expect(mcp.getByTestId('mcp-command')).toContainText('claude mcp add');
+  await expect(mcp.getByTestId('mcp-tools')).toContainText('create_issue');
+
   const create = async (
     name: string,
     scope: 'Read only' | 'Read and write',
