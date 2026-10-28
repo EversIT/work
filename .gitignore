@@ -62,7 +62,7 @@ apps/frontend/src/api/generated
 target
 .env
 .env.*
-!deploy/.env.example
+!packages/deploy/.env.example
 
 # VitePress
 apps/docs/.vitepress/cache

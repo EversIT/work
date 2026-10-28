@@ -17,4 +17,4 @@
 /apps/backend/migrations/     @Optischa
 /.github/                     @Optischa
 /packages/docker/             @Optischa
-/deploy/                      @Optischa
+/packages/deploy/                      @Optischa

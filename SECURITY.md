@@ -16,7 +16,7 @@ Security fixes go into the latest release and the `main` branch.
 ## Scope
 
 In scope: the backend (`apps/backend`), the frontend (`apps/frontend`), the container images and the compose file
-in `deploy/`. Out of scope: findings that need a hostile administrator (administrators are trusted), a
+in `packages/deploy/`. Out of scope: findings that need a hostile administrator (administrators are trusted), a
 compromised host or database, missing hardening of a deployment you control (TLS termination, firewalling),
 and denial of service by sheer volume.
 

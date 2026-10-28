@@ -35,7 +35,7 @@ Requirements: Node 24+, Rust (via [rustup](https://rustup.rs)), PostgreSQL 15+, 
 
 ```sh
 npm ci
-cp deploy/.env.example .env     # fill in the required values; there are no defaults for secrets
+cp packages/deploy/.env.example .env     # fill in the required values; there are no defaults for secrets
 npx nx run backend:serve        # needs the WORK_* variables from .env in its environment
 npx nx run frontend:dev
 ```
@@ -46,7 +46,7 @@ With Docker:
 
 ```sh
 npx nx run-many -t container:local
-docker compose -f deploy/docker-compose.yml --env-file .env up
+docker compose -f packages/deploy/docker-compose.yml --env-file .env up
 ```
 
 Compose refuses to start when a secret is missing and publishes only `127.0.0.1:3000`; put a TLS-terminating
