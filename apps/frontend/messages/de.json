@@ -91,16 +91,18 @@
     "create": "Erstellen",
     "close": "Schließen",
     "loading": "Lädt…",
-    "search": "Suchen",
+    "search": "Suchen…",
     "none": "Keine",
-    "add": "Hinzufügen",
+    "add": "Hinzufügen…",
     "remove": "Entfernen",
     "yes": "Ja",
     "no": "Nein",
     "back": "Zurück",
     "confirmDelete": "Bist du sicher? Das lässt sich nicht rückgängig machen.",
     "previous": "Zurück",
-    "next": "Weiter"
+    "next": "Weiter",
+    "noMatches": "Keine Treffer",
+    "removeValue": "{value} entfernen"
   },
   "errors": {
     "unauthorized": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",

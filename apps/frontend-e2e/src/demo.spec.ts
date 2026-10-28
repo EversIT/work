@@ -154,3 +154,25 @@ test('a comment can be edited, and the edit keeps its place', async ({
   await expect(comments.getByTestId('comment-edit')).toBeHidden();
   await expect(comments).toContainText('Edited: start with the ideal line');
 });
+
+test('long lists get a search field: labels are added by typing', async ({
+  page,
+}) => {
+  await page.goto(BURNDOWN);
+  const details = page.getByTestId('issue-details');
+  await details.getByText('Add…', { exact: true }).click();
+  await page.getByTestId('select-search').fill('bac');
+  await expect(page.getByRole('option', { name: 'backend' })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'design' })).toHaveCount(0);
+  await page.getByRole('option', { name: 'backend' }).click();
+  await expect(details.getByTestId('selected-values')).toContainText('backend');
+  // The first Escape clears the search text, the second closes the list.
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('select-search')).toBeHidden();
+  // A chip can be removed again.
+  await details.getByRole('button', { name: 'Remove backend' }).click();
+  await expect(details.getByTestId('selected-values')).not.toContainText(
+    'backend',
+  );
+});
