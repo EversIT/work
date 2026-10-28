@@ -1,8 +1,11 @@
 'use client';
 
+import { X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+
 import {
-  Checkbox,
-  CheckboxGroup,
+  Autocomplete,
+  Button,
   FieldError,
   Input,
   Label,
@@ -93,6 +96,101 @@ export function TextAreaInput({
 
 export type Option = { value: string; label: string };
 
+/** From this many options on, a select gets a search field (people, labels, projects). */
+const SEARCH_FROM = 7;
+
+const contains = (text: string, input: string) =>
+  text.toLowerCase().includes(input.trim().toLowerCase());
+
+/** The search field and the filtered list inside an autocomplete's popover. */
+function SearchList({
+  options,
+  allowEmpty,
+}: {
+  options: Option[];
+  allowEmpty?: boolean;
+}) {
+  const t = useTranslations('common');
+  return (
+    <Autocomplete.Filter filter={contains}>
+      <SearchField
+        // oxlint-disable-next-line jsx-a11y/no-autofocus
+        autoFocus
+        name="search"
+        variant="secondary"
+        aria-label={t('search')}
+      >
+        <SearchField.Group>
+          <SearchField.SearchIcon />
+          <SearchField.Input
+            placeholder={t('search')}
+            data-testid="select-search"
+          />
+          <SearchField.ClearButton />
+        </SearchField.Group>
+      </SearchField>
+      <ListBox
+        renderEmptyState={() => (
+          <p className="px-3 py-2 text-sm text-muted">{t('noMatches')}</p>
+        )}
+      >
+        {allowEmpty && (
+          <ListBox.Item id="__none" textValue="—">
+            —<ListBox.ItemIndicator />
+          </ListBox.Item>
+        )}
+        {options.map((o) => (
+          <ListBox.Item key={o.value} id={o.value} textValue={o.label}>
+            {o.label}
+            <ListBox.ItemIndicator />
+          </ListBox.Item>
+        ))}
+      </ListBox>
+    </Autocomplete.Filter>
+  );
+}
+
+/** A select with a search field: type to narrow a long list. */
+function SearchableSelect({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+  allowEmpty,
+  testId,
+  hideLabel,
+}: {
+  label: string;
+  value: string | null | undefined;
+  onChange: (v: string | null) => void;
+  options: Option[];
+  placeholder?: string;
+  allowEmpty?: boolean;
+  testId?: string;
+  hideLabel?: boolean;
+}) {
+  return (
+    <Autocomplete
+      selectionMode="single"
+      value={value ?? null}
+      onChange={(k) => onChange(k === null ? null : String(k))}
+      placeholder={placeholder ?? label}
+      fullWidth
+      data-testid={testId}
+    >
+      <Label className={hideLabel ? 'sr-only' : undefined}>{label}</Label>
+      <Autocomplete.Trigger>
+        <Autocomplete.Value />
+        <Autocomplete.Indicator />
+      </Autocomplete.Trigger>
+      <Autocomplete.Popover>
+        <SearchList options={options} allowEmpty={allowEmpty} />
+      </Autocomplete.Popover>
+    </Autocomplete>
+  );
+}
+
 export function SimpleSelect({
   label,
   value,
@@ -115,6 +213,19 @@ export function SimpleSelect({
   /** The label stays for screen readers but is not drawn (for selects in table-like rows). */
   hideLabel?: boolean;
 }) {
+  if (options.length > SEARCH_FROM)
+    return (
+      <SearchableSelect
+        label={label}
+        value={value}
+        onChange={onChange}
+        options={options}
+        placeholder={placeholder}
+        allowEmpty={allowEmpty}
+        testId={testId}
+        hideLabel={hideLabel}
+      />
+    );
   return (
     <Select
       name={name}
@@ -148,6 +259,10 @@ export function SimpleSelect({
   );
 }
 
+/**
+ * Several values out of a list (labels, people): the chosen ones as chips that can be removed, and
+ * a search field to add more, so a long list is never shown in full.
+ */
 export function MultiCheck({
   label,
   value,
@@ -161,26 +276,53 @@ export function MultiCheck({
   options: Option[];
   hideLabel?: boolean;
 }) {
+  const t = useTranslations('common');
+  const nameOf = (v: string) => options.find((o) => o.value === v)?.label ?? v;
   return (
-    <CheckboxGroup value={value} onChange={onChange} name={label}>
-      <Label className={hideLabel ? 'sr-only' : undefined}>{label}</Label>
-      <div className="flex flex-wrap gap-x-4 gap-y-1">
-        {options.map((o) => (
-          <Checkbox
-            className="flex flex-row items-center gap-2"
-            key={o.value}
-            value={o.value}
-          >
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            <Checkbox.Content>
-              <Label>{o.label}</Label>
-            </Checkbox.Content>
-          </Checkbox>
-        ))}
-      </div>
-    </CheckboxGroup>
+    <div className="flex flex-col gap-1.5" data-testid="multi-select">
+      {value.length > 0 && (
+        <ul
+          aria-label={label}
+          className="flex flex-wrap gap-1"
+          data-testid="selected-values"
+        >
+          {value.map((v) => (
+            <li
+              key={v}
+              className="flex items-center gap-1 rounded-sm bg-accent-soft py-0.5 pl-2 pr-0.5 text-xs font-medium text-accent"
+            >
+              {nameOf(v)}
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                aria-label={t('removeValue', { value: nameOf(v) })}
+                className="size-5 min-w-0 text-accent"
+                onPress={() => onChange(value.filter((x) => x !== v))}
+              >
+                <X size={12} />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <Autocomplete
+        selectionMode="multiple"
+        value={value}
+        onChange={(keys) => onChange(keys.map(String))}
+        placeholder={t('add')}
+        fullWidth
+      >
+        <Label className={hideLabel ? 'sr-only' : undefined}>{label}</Label>
+        <Autocomplete.Trigger>
+          <Autocomplete.Value>{() => t('add')}</Autocomplete.Value>
+          <Autocomplete.Indicator />
+        </Autocomplete.Trigger>
+        <Autocomplete.Popover>
+          <SearchList options={options} />
+        </Autocomplete.Popover>
+      </Autocomplete>
+    </div>
   );
 }
 

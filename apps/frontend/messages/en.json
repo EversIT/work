@@ -91,16 +91,18 @@
     "create": "Create",
     "close": "Close",
     "loading": "Loading…",
-    "search": "Search",
+    "search": "Search…",
     "none": "None",
-    "add": "Add",
+    "add": "Add…",
     "remove": "Remove",
     "yes": "Yes",
     "no": "No",
     "back": "Back",
     "confirmDelete": "Are you sure? This cannot be undone.",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "noMatches": "No matches",
+    "removeValue": "Remove {value}"
   },
   "errors": {
     "unauthorized": "Your session has expired. Please sign in again.",
