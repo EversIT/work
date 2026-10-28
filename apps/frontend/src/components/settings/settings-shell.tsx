@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, ChevronDown, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader, SettingsSkeleton } from '../ui/settings';
 
@@ -28,7 +28,7 @@ function NavLink({
       href={item.href}
       data-testid={`${item.testId}${suffix}`}
       aria-current={active ? 'page' : undefined}
-      className={`group relative flex h-9 shrink-0 items-center gap-2.5 rounded-md px-3 text-sm transition-colors duration-150 before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:origin-center before:scale-y-0 before:rounded-full before:bg-accent before:transition-transform before:duration-200 aria-[current=page]:before:scale-y-100 ${
+      className={`group relative flex h-10 shrink-0 items-center gap-2.5 md:h-9 rounded-md px-3 text-sm transition-colors duration-150 before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:origin-center before:scale-y-0 before:rounded-full before:bg-accent before:transition-transform before:duration-200 aria-[current=page]:before:scale-y-100 ${
         active
           ? 'bg-accent-soft font-medium text-accent'
           : 'text-muted hover:bg-default hover:text-foreground'
@@ -93,16 +93,25 @@ export function SettingsShell({
         </div>
         <nav aria-label={identity.caption} className="flex flex-col gap-4 pt-1">
           {groups.map((g) => (
-            <div key={g.label} className="flex flex-col gap-0.5">
-              <p className="jira-eyebrow px-3 pb-1">{g.label}</p>
-              {g.items.map((item) => (
-                <NavLink
-                  key={item.id}
-                  item={item}
-                  active={item.id === activeId}
+            // Jira's tree: every group can be folded; the one holding the open page starts open.
+            <details key={g.label} open className="group/section">
+              <summary className="jira-eyebrow flex h-7 cursor-pointer list-none items-center justify-between rounded-md px-3 hover:bg-default [&::-webkit-details-marker]:hidden">
+                {g.label}
+                <ChevronDown
+                  size={14}
+                  className="transition-transform group-open/section:rotate-180"
                 />
-              ))}
-            </div>
+              </summary>
+              <div className="flex flex-col gap-0.5 pt-0.5">
+                {g.items.map((item) => (
+                  <NavLink
+                    key={item.id}
+                    item={item}
+                    active={item.id === activeId}
+                  />
+                ))}
+              </div>
+            </details>
           ))}
         </nav>
       </aside>
@@ -111,7 +120,7 @@ export function SettingsShell({
         {/* Small screens: the same sections as a strip that scrolls sideways. */}
         <nav
           aria-label={identity.caption}
-          className="-mx-4 mb-5 flex gap-1 overflow-x-auto px-4 pb-1 md:hidden"
+          className="sticky top-0 z-20 -mx-4 mb-4 flex gap-1 overflow-x-auto border-b border-separator bg-surface px-4 py-1.5 md:hidden"
         >
           {all.map((item) => (
             <NavLink
