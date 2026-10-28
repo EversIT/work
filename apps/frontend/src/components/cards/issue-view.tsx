@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import {
   Button,
   Dropdown,
@@ -22,7 +21,9 @@ import {
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
 import {
+  useCreateCard,
   useDeleteCard,
   useGetCard,
   useGetCardChildren,
@@ -149,6 +150,15 @@ export function IssueView({
       const cl = c.lists[0];
       return list?.stages.find((s) => s.id === cl?.list_stage_id)?.is_completed;
     }).length;
+    const firstStage = list?.stages[0]?.id;
+    const inProgress = children.filter((c) => {
+      const st = list?.stages.find((x) => x.id === c.lists[0]?.list_stage_id);
+      return !!st && !st.is_completed && st.id !== firstStage;
+    }).length;
+    const titleText =
+      title && typeof card.data[title.slug] === 'string'
+        ? (card.data[title.slug] as string)
+        : '';
     const assigneeField = details.find((f) => f.is_assignee);
     const mine = ctx.me?.id;
     const assignedToMe =
@@ -242,64 +252,91 @@ export function IssueView({
                 canWrite={canWrite}
                 descriptionSlug={description.slug}
                 titleSlug={title?.slug}
-                title={
-                  title && typeof card.data[title.slug] === 'string'
-                    ? (card.data[title.slug] as string)
-                    : ''
-                }
-                kind={type?.name}
+                title={titleText}
+                kind={type.name}
               />
             </div>
           )}
-          {children.length > 0 && (
-            <section aria-label={t('childIssues')}>
+          {type.icon !== 'subtask' && (
+            <section aria-label={t('childIssues')} data-testid="subtasks">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-base font-semibold">{t('childIssues')}</h3>
-                <span className="text-xs text-muted">
-                  {t('childProgress', { done, total: children.length })}
-                </span>
+                {children.length > 0 && (
+                  <span
+                    className="text-xs text-muted"
+                    data-testid="child-summary"
+                  >
+                    {t('childProgress', { done, total: children.length })}
+                    {' · '}
+                    {t('childSummary', {
+                      progress: inProgress,
+                      todo: children.length - done - inProgress,
+                    })}
+                  </span>
+                )}
               </div>
-              <div
-                className="mb-3 h-1.5 overflow-hidden rounded-full bg-default"
-                aria-hidden
-              >
-                <div
-                  className="h-full rounded-full bg-success transition-all duration-500"
-                  style={{ width: `${(done / children.length) * 100}%` }}
-                />
-              </div>
-              <ul className="divide-y divide-separator overflow-hidden rounded-xl border border-separator">
-                {children.map((c) => {
-                  const ct = issueType(c, ctx.cardTypes);
-                  const st = list?.stages.find(
-                    (s) => s.id === c.lists[0]?.list_stage_id,
-                  );
-                  return (
-                    <li
-                      key={c.id}
-                      className="flex items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-surface-secondary"
-                    >
-                      <IssueTypeIcon icon={ct?.icon} color={ct?.color} />
-                      <span className="w-20 shrink-0 text-xs text-muted">
-                        {c.key}
-                      </span>
-                      <Link
-                        className="min-w-0 flex-1 truncate hover:underline"
-                        href={routes.browse(c.key)}
-                      >
-                        {issueTitle(c, ctx.cardTypes)}
-                      </Link>
-                      {st && list && (
-                        <Lozenge
-                          kind={stageKind(st, list.stages[0]?.id === st.id)}
+              {children.length > 0 && (
+                <>
+                  <div
+                    className="mb-3 h-1.5 overflow-hidden rounded-full bg-default"
+                    aria-hidden
+                  >
+                    <div
+                      className="h-full rounded-full bg-success transition-all duration-500"
+                      style={{ width: `${(done / children.length) * 100}%` }}
+                    />
+                  </div>
+                  <ul className="divide-y divide-separator overflow-hidden rounded-xl border border-separator">
+                    {children.map((c) => {
+                      const ct = issueType(c, ctx.cardTypes);
+                      const st = list?.stages.find(
+                        (s) => s.id === c.lists[0]?.list_stage_id,
+                      );
+                      return (
+                        <li
+                          key={c.id}
+                          className="flex items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-surface-secondary"
                         >
-                          {st.name}
-                        </Lozenge>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
+                          <IssueTypeIcon icon={ct?.icon} color={ct?.color} />
+                          <span className="w-20 shrink-0 text-xs text-muted">
+                            {c.key}
+                          </span>
+                          <Link
+                            className="min-w-0 flex-1 truncate hover:underline"
+                            href={routes.browse(c.key)}
+                          >
+                            {issueTitle(c, ctx.cardTypes)}
+                          </Link>
+                          {st && list && (
+                            <Lozenge
+                              kind={stageKind(st, list.stages[0]?.id === st.id)}
+                            >
+                              {st.name}
+                            </Lozenge>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+              {canWrite && primary && (
+                <div className="mt-2 flex flex-wrap items-start gap-2">
+                  <AiAssistant
+                    shortcut="subtasks"
+                    card={card}
+                    canWrite={canWrite}
+                    titleSlug={title?.slug}
+                  />
+                </div>
+              )}
+              {canWrite && primary && (
+                <SubtaskAdder
+                  listId={primary.list_id}
+                  parentId={card.id}
+                  sprintId={primary.sprint_id}
+                />
+              )}
             </section>
           )}
           <LinkedIssues
@@ -629,6 +666,112 @@ function DetailRow({
         {label}
       </span>
       <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * Jira's inline "Add subtask": a click opens a one-line input, Enter creates the sub-task and keeps
+ * the input open for the next one, Escape closes it. The full form stays behind "Add a child issue".
+ */
+function SubtaskAdder({
+  listId,
+  parentId,
+  sprintId,
+}: {
+  listId: string;
+  parentId: string;
+  sprintId?: string | null;
+}) {
+  const t = useTranslations('issue');
+  const te = useTranslations('errors');
+  const qc = useQueryClient();
+  const ctx = useWorkspaceCtx();
+  const create = useCreateCard();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (open) input.current?.focus();
+  }, [open]);
+  const subtask = ctx.cardTypes.find((c) => c.icon === 'subtask');
+  const titleSlug = subtask?.fields.find((f) => f.is_title)?.slug;
+  if (!subtask || !titleSlug) return null;
+
+  const submit = async () => {
+    const value = name.trim();
+    if (!value || create.isPending) return;
+    try {
+      const res = await create.mutateAsync({
+        id: listId,
+        data: {
+          data: { [titleSlug]: value },
+          card_type_id: subtask.id,
+          parent_id: parentId,
+        },
+      });
+      if (res.status !== 200) return;
+      if (sprintId)
+        await putCardSprint(res.data.id, {
+          list_id: listId,
+          sprint_id: sprintId,
+        });
+      setName('');
+      await qc.invalidateQueries();
+    } catch (e) {
+      toast.danger(serverMessage(e) ?? te(errorKind(e)));
+    }
+  };
+
+  if (!open)
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        data-testid="add-subtask"
+        className="mt-2 flex items-center gap-1 rounded-sm px-1 py-1 text-sm text-muted hover:bg-default-hover hover:text-foreground"
+      >
+        <Plus size={14} />
+        {t('addSubtask')}
+      </button>
+    );
+  return (
+    <div className="mt-2 flex flex-col gap-2">
+      <input
+        ref={input}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') void submit();
+          if (e.key === 'Escape') {
+            setName('');
+            setOpen(false);
+          }
+        }}
+        aria-label={t('subtaskName')}
+        placeholder={t('subtaskName')}
+        data-testid="subtask-name"
+        className="h-9 w-full rounded-sm border border-accent bg-surface px-3 text-sm outline-none"
+      />
+      <div className="flex justify-end gap-2">
+        <Button
+          size="sm"
+          variant="tertiary"
+          onPress={() => {
+            setName('');
+            setOpen(false);
+          }}
+        >
+          {t('cancel')}
+        </Button>
+        <Button
+          size="sm"
+          isDisabled={!name.trim() || create.isPending}
+          onPress={() => void submit()}
+        >
+          {t('createButton')}
+        </Button>
+      </div>
     </div>
   );
 }
