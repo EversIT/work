@@ -8,6 +8,7 @@ pub mod auth;
 pub mod card_types;
 pub mod cards;
 pub mod files;
+pub mod links;
 pub mod lists;
 pub mod mcp;
 pub mod mfa;

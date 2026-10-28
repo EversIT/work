@@ -2395,6 +2395,155 @@
         ]
       }
     },
+    "/cards/{id}/links": {
+      "get": {
+        "tags": [
+          "cards"
+        ],
+        "operationId": "listCardLinks",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CardLinkOut"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "operationId": "createCardLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLinkBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardLinkOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/cards/{id}/links/{link_id}": {
+      "delete": {
+        "tags": [
+          "cards"
+        ],
+        "operationId": "deleteCardLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "link_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/cards/{id}/lists/{list_id}": {
       "put": {
         "tags": [
@@ -8505,6 +8654,34 @@
           }
         }
       },
+      "CardLinkOut": {
+        "type": "object",
+        "description": "One link as seen from the issue it was asked for.",
+        "required": [
+          "id",
+          "link_type",
+          "direction",
+          "card"
+        ],
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/CardOut",
+            "description": "The issue at the other end."
+          },
+          "direction": {
+            "type": "string",
+            "description": "`outward`: this issue blocks/duplicates/clones the other. `inward`: it is blocked,\nduplicated or cloned by it. `relates` is the same both ways and always `outward`."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "link_type": {
+            "type": "string",
+            "description": "`blocks`, `duplicates`, `relates` or `clones`."
+          }
+        }
+      },
       "CardListBody": {
         "type": "object",
         "required": [
@@ -9072,6 +9249,31 @@
             ],
             "format": "uuid",
             "description": "Defaults to the first stage of the list."
+          }
+        }
+      },
+      "CreateLinkBody": {
+        "type": "object",
+        "required": [
+          "link_type",
+          "target_id"
+        ],
+        "properties": {
+          "direction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`outward` (default): the issue in the path blocks/duplicates/clones the target. `inward`:\nthe target does so to the issue in the path."
+          },
+          "link_type": {
+            "type": "string",
+            "description": "`blocks`, `duplicates`, `relates` or `clones`."
+          },
+          "target_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The issue at the other end."
           }
         }
       },
