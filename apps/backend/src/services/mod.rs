@@ -3,6 +3,7 @@
 
 pub mod collab;
 pub mod events;
+pub mod intel;
 pub mod hub;
 pub mod integrations;
 pub mod mailer;
