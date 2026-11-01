@@ -50,7 +50,7 @@ jobs:
           main-branch-name: 'main'
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm

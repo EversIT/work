@@ -33,7 +33,7 @@ jobs:
       TEST_AZURE_ENDPOINT: http://127.0.0.1:10000
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - name: Start storage emulators (S3 and Azure Blob) with a throw-away key
         run: |
@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci --ignore-scripts
       - run: npm audit --omit=dev --audit-level=high
@@ -96,7 +96,7 @@ jobs:
     needs: [backend, backend-lint, backend-audit, frontend]
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: rustup show
       # `.cargo/config.toml` puts the build output in dist/target; the cache must look there, or every
