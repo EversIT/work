@@ -60,7 +60,7 @@ jobs:
       # `cache: npm` above stays as the fallback that speeds up the miss path.
       - name: Cache node_modules
         id: node-modules
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-node24-${{ hashFiles('package-lock.json') }}
@@ -74,7 +74,7 @@ jobs:
       # key still hits for untouched projects. Keyed by run id so every run writes
       # a fresh entry; restore-keys falls back to the latest previous one.
       - name: Cache Nx
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .nx/cache
           key: nx-${{ runner.os }}-${{ github.run_id }}

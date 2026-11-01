@@ -118,7 +118,7 @@ jobs:
 
       - name: Cache node_modules
         id: node-modules
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-node24-${{ hashFiles('package-lock.json') }}
@@ -130,7 +130,7 @@ jobs:
       # Shared with the CI workflow's cache - restores `build` outputs so only the
       # `docker build` step actually runs for projects that haven't changed.
       - name: Cache Nx
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .nx/cache
           key: nx-${{ runner.os }}-${{ github.run_id }}
