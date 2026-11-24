@@ -1,29 +1,61 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { createWorkspaceSpaceList, register } from './helpers';
 
-async function dragToConnector(page: Page, source: Locator, target: Locator) {
+async function html5DragAndDrop(source: Locator, target: Locator) {
   await source.scrollIntoViewIfNeeded();
   await target.scrollIntoViewIfNeeded();
 
-  const sourceBox = await source.boundingBox();
-  const targetBox = await target.boundingBox();
-  if (!sourceBox || !targetBox) {
-    throw new Error('Could not resolve bounding boxes for drag-and-drop');
+  const sourceHandle = await source.elementHandle();
+  const targetHandle = await target.elementHandle();
+  if (!sourceHandle || !targetHandle) {
+    throw new Error(
+      'Could not resolve element handles for HTML5 drag-and-drop',
+    );
   }
 
-  await page.mouse.move(
-    sourceBox.x + sourceBox.width / 2,
-    sourceBox.y + sourceBox.height / 2,
-  );
-  await page.mouse.down();
+  await sourceHandle.evaluate((src, dst) => {
+    const dataTransfer = new DataTransfer();
 
-  // Zwischengeschaltete Steps aktivieren Drag-Over-Listener zuverlässiger als ein Sprung
-  await page.mouse.move(
-    targetBox.x + targetBox.width / 2,
-    targetBox.y + targetBox.height / 2,
-    { steps: 8 },
-  );
-  await page.mouse.up();
+    src.dispatchEvent(
+      new DragEvent('dragstart', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer,
+      }),
+    );
+
+    dst.dispatchEvent(
+      new DragEvent('dragenter', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer,
+      }),
+    );
+
+    dst.dispatchEvent(
+      new DragEvent('dragover', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer,
+      }),
+    );
+
+    dst.dispatchEvent(
+      new DragEvent('drop', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer,
+      }),
+    );
+
+    src.dispatchEvent(
+      new DragEvent('dragend', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer,
+      }),
+    );
+  }, targetHandle);
 }
 
 test('rules are built on their own page: drag actions in, re-order them, scope them to a project', async ({
@@ -67,8 +99,7 @@ test('rules are built on their own page: drag actions in, re-order them, scope t
     .fill('Follow up');
 
   // Drag the first action to the end: the order flips.
-  await dragToConnector(
-    page,
+  await html5DragAndDrop(
     page.getByTestId('node-step-0-grip'),
     page.getByTestId('connector-2'),
   );
