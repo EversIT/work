@@ -68,7 +68,9 @@ test('profile, password change and account deletion', async ({ page }) => {
 
   await page.getByLabel('First name').fill('Renamed');
   await page.getByRole('button', { name: 'Save' }).first().click();
-  await expect(page.getByText('Saved')).toBeVisible();
+  await expect(
+    page.getByRole('alertdialog').getByText('Saved', { exact: true }),
+  ).toBeVisible();
 
   // The password is under "Sign-in and security".
   await page.getByTestId('atab-security').click();
@@ -92,8 +94,8 @@ test('profile, password change and account deletion', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Delete account' }).click();
   await expect(page).toHaveURL(/\/login/);
   // The account is gone: the old credentials no longer work.
-  await page.getByLabel('Email').fill(u.email);
-  await page.getByLabel('Password').fill(next);
+  await page.getByLabel('Email', { exact: true }).fill(u.email);
+  await page.getByLabel('Password', { exact: true }).fill(next);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByText('Email or password is incorrect.')).toBeVisible();
 });
