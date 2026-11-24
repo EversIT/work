@@ -85,6 +85,7 @@ fn service_provider(state: &AppState, cfg: &SamlConfig) -> ApiResult<ServiceProv
         logout_signing: Default::default(),
         logout_want_signed: Default::default(),
         default_peer_crypto_policy: PeerCryptoPolicy::strong_defaults(),
+        verifier: None,
         outbound_signature_algorithm: saml::SignatureAlgorithm::RsaSha256,
         outbound_digest_algorithm: saml::DigestAlgorithm::Sha256,
     })

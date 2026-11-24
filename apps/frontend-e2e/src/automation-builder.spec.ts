@@ -1,5 +1,62 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { createWorkspaceSpaceList, register } from './helpers';
+
+async function html5DragAndDrop(source: Locator, target: Locator) {
+  await source.scrollIntoViewIfNeeded();
+  await target.scrollIntoViewIfNeeded();
+
+  const sourceHandle = await source.elementHandle();
+  const targetHandle = await target.elementHandle();
+  if (!sourceHandle || !targetHandle) {
+    throw new Error(
+      'Could not resolve element handles for HTML5 drag-and-drop',
+    );
+  }
+
+  await sourceHandle.evaluate((src, dst) => {
+    const dataTransfer = new DataTransfer();
+
+    src.dispatchEvent(
+      new DragEvent('dragstart', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer,
+      }),
+    );
+
+    dst.dispatchEvent(
+      new DragEvent('dragenter', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer,
+      }),
+    );
+
+    dst.dispatchEvent(
+      new DragEvent('dragover', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer,
+      }),
+    );
+
+    dst.dispatchEvent(
+      new DragEvent('drop', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer,
+      }),
+    );
+
+    src.dispatchEvent(
+      new DragEvent('dragend', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer,
+      }),
+    );
+  }, targetHandle);
+}
 
 test('rules are built on their own page: drag actions in, re-order them, scope them to a project', async ({
   page,
@@ -42,9 +99,10 @@ test('rules are built on their own page: drag actions in, re-order them, scope t
     .fill('Follow up');
 
   // Drag the first action to the end: the order flips.
-  await page
-    .getByTestId('node-step-0-grip')
-    .dragTo(page.getByTestId('connector-2'));
+  await html5DragAndDrop(
+    page.getByTestId('node-step-0-grip'),
+    page.getByTestId('connector-2'),
+  );
   await expect(page.getByTestId('node-step-0')).toContainText(
     'Create a comment',
   );

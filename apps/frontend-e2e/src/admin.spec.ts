@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { register } from './helpers';
 
 const MODEL_URL =
@@ -11,6 +11,34 @@ const PNG_1X1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
   'base64',
 );
+
+async function testAiConnectionUntilReady(
+  page: Page,
+  ai: Locator,
+  url: string,
+  attempts = 5,
+) {
+  for (let i = 0; i < attempts; i++) {
+    await ai.getByLabel('Server address').fill(url);
+    await ai.getByTestId('ai-test').click();
+
+    const result = ai.getByTestId('ai-test-result');
+    await expect(result).not.toBeEmpty();
+
+    const text = (await result.textContent())?.trim();
+    if (text === 'The model answered.') {
+      return;
+    }
+
+    if (i < attempts - 1) {
+      await page.waitForTimeout(500);
+    }
+  }
+
+  await expect(ai.getByTestId('ai-test-result')).toHaveText(
+    'The model answered.',
+  );
+}
 
 test('the administrator sees the instance and changes its name, colour and favicon', async ({
   page,
@@ -100,11 +128,7 @@ test('the administrator sees the instance and changes its name, colour and favic
   await ai.getByLabel('Server address').fill('http://127.0.0.1:1');
   await ai.getByTestId('ai-test').click();
   await expect(ai.getByTestId('ai-test-result')).toContainText('not reachable');
-  await ai.getByLabel('Server address').fill(MODEL_URL);
-  await ai.getByTestId('ai-test').click();
-  await expect(ai.getByTestId('ai-test-result')).toHaveText(
-    'The model answered.',
-  );
+  await testAiConnectionUntilReady(page, ai, MODEL_URL);
   await ai.getByTestId('ai-save').click();
   await expect(ai.getByTestId('ai-state')).toHaveText('On');
   await expect(ai.getByTestId('ai-source')).toContainText('Set here');
